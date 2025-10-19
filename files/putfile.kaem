@@ -1,0 +1,3 @@
+wcw next "${ARG}"
+catm curr prev next "${ARG}"
+catm prev curr

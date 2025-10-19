@@ -1,0 +1,3 @@
+replace --file /noop.kaem --match-on \# --replace-with "src 0 ${ARG}" --output next
+catm curr prev next
+catm prev curr

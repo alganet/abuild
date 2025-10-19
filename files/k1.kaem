@@ -1,0 +1,5 @@
+cd /
+
+/x86/bin/kaem --verbose --strict --file k0.kaem
+
+echo Hello

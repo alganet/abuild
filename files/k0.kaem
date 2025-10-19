@@ -1,0 +1,226 @@
+M2LIBC_PATH="/M2libc"
+PATH="/x86/bin:/bin"
+TMPDIR="/tmp"
+
+mkdir -p /tmp
+mkdir -p /tmp/denv
+
+cd /
+catm after.kaem k1.kaem
+mkdir -p /bootstrap-seeds
+mkdir -p /bootstrap-seeds/NATIVE
+mkdir -p /bootstrap-seeds/NATIVE/x86/
+
+/bootstrap-seeds/POSIX/x86/hex0-seed /x86/hex0_x86.hex0 /x86/artifact/hex0
+/x86/artifact/hex0 /builder-hex0/builder-hex0-x86-stage1.hex0 /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
+
+cd /opt/abuild
+mkdir -p /bin
+M2-Mesoplanet --operating-system Linux --architecture x86 -f src/wcw.c -o /bin/wcw
+M2-Mesoplanet --operating-system Linux --architecture x86 -f src/zrpad.c -o /bin/zrpad
+
+mkdir -p /opt/abuild/tmp
+cd /opt/abuild/tmp
+
+alias create_file="replace --file /noop.kaem --match-on \# --replace-with"
+alias putdir="/x86/bin/kaem --file /putdir.kaem"
+alias putfile="/x86/bin/kaem --file /putfile.kaem"
+
+catm curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
+catm prev curr
+
+zrpad prev 512 next
+catm curr prev next
+catm prev curr
+
+catm next /builder-hex0/builder-hex0-x86-stage2.hex0
+catm curr prev next
+catm prev curr
+
+zrpad prev 512 next
+catm curr prev next
+catm prev curr
+
+ARG=/; putdir
+ARG=/dev; putdir
+
+ARG=/k0.kaem; putfile
+ARG=/k1.kaem; putfile
+ARG=/putdir.kaem; putfile
+ARG=/putfile.kaem; putfile
+ARG=/noop.kaem; putfile
+ARG=/after.kaem; putfile
+ARG=/bootstrap-seeds; putdir
+ARG=/bootstrap-seeds/POSIX; putdir
+ARG=/bootstrap-seeds/POSIX/x86; putdir
+ARG=/kaem.x86; putfile
+ARG=/M2-Mesoplanet; putdir
+ARG=/M2-Mesoplanet/cc_core.c; putfile
+ARG=/M2-Mesoplanet/cc_env.c; putfile
+ARG=/M2-Mesoplanet/cc_globals.c; putfile
+ARG=/M2-Mesoplanet/cc_macro.c; putfile
+ARG=/M2-Mesoplanet/cc_reader.c; putfile
+ARG=/M2-Mesoplanet/cc_spawn.c; putfile
+ARG=/M2-Mesoplanet/cc.c; putfile
+ARG=/M2-Mesoplanet/cc.h; putfile
+ARG=/M2-Planet; putdir
+ARG=/M2-Planet/cc_core.c; putfile
+ARG=/M2-Planet/cc_globals.c; putfile
+ARG=/M2-Planet/cc_macro.c; putfile
+ARG=/M2-Planet/cc_reader.c; putfile
+ARG=/M2-Planet/cc_strings.c; putfile
+ARG=/M2-Planet/cc_types.c; putfile
+ARG=/M2-Planet/cc.c; putfile
+ARG=/M2-Planet/cc.h; putfile
+ARG=/M2libc; putdir
+ARG=/M2libc/aarch64; putdir
+ARG=/M2libc/aarch64/linux; putdir
+ARG=/M2libc/aarch64/linux/fcntl.c; putfile
+ARG=/M2libc/aarch64/linux/sys; putdir
+ARG=/M2libc/aarch64/linux/sys/stat.c; putfile
+ARG=/M2libc/aarch64/linux/unistd.c; putfile 
+ARG=/M2libc/amd64; putdir
+ARG=/M2libc/amd64/linux; putdir
+ARG=/M2libc/amd64/linux/fcntl.c; putfile
+ARG=/M2libc/amd64/linux/sys; putdir
+ARG=/M2libc/amd64/linux/sys/stat.c; putfile
+ARG=/M2libc/amd64/linux/unistd.c; putfile
+ARG=/M2libc/armv7l; putdir
+ARG=/M2libc/armv7l/linux; putdir
+ARG=/M2libc/armv7l/linux/fcntl.c; putfile
+ARG=/M2libc/armv7l/linux/sys; putdir
+ARG=/M2libc/armv7l/linux/sys/stat.c; putfile
+ARG=/M2libc/armv7l/linux/unistd.c; putfile
+ARG=/M2libc/bootstrappable.c; putfile
+ARG=/M2libc/bootstrappable.h; putfile
+ARG=/M2libc/ctype.c; putfile
+ARG=/M2libc/ctype.h; putfile
+ARG=/M2libc/fcntl.c; putfile
+ARG=/M2libc/fcntl.h; putfile
+ARG=/M2libc/knight; putdir
+ARG=/M2libc/knight/linux; putdir
+ARG=/M2libc/knight/linux/fcntl.c; putfile
+ARG=/M2libc/knight/native; putdir
+ARG=/M2libc/knight/native/fcntl.c; putfile
+ARG=/M2libc/riscv32; putdir
+ARG=/M2libc/riscv32/linux; putdir
+ARG=/M2libc/riscv32/linux/fcntl.c; putfile
+ARG=/M2libc/riscv32/linux/sys; putdir
+ARG=/M2libc/riscv32/linux/sys/stat.c; putfile
+ARG=/M2libc/riscv32/linux/unistd.c; putfile
+ARG=/M2libc/riscv64; putdir
+ARG=/M2libc/riscv64/linux; putdir
+ARG=/M2libc/riscv64/linux/fcntl.c; putfile
+ARG=/M2libc/riscv64/linux/sys; putdir
+ARG=/M2libc/riscv64/linux/sys/stat.c; putfile
+ARG=/M2libc/riscv64/linux/unistd.c; putfile
+ARG=/M2libc/signal.h; putfile
+ARG=/M2libc/stddef.h; putfile
+ARG=/M2libc/stdint.h; putfile
+ARG=/M2libc/stdio.c; putfile
+ARG=/M2libc/stdio.h; putfile
+ARG=/M2libc/stdlib.c; putfile
+ARG=/M2libc/stdlib.h; putfile
+ARG=/M2libc/string.c; putfile
+ARG=/M2libc/string.h; putfile
+ARG=/M2libc/sys; putdir
+ARG=/M2libc/sys/stat.h; putfile
+ARG=/M2libc/sys/types.h; putfile
+ARG=/M2libc/sys/utsname.h; putfile
+ARG=/M2libc/uefi; putdir
+ARG=/M2libc/uefi/fcntl.c; putfile
+ARG=/M2libc/uefi/string_p.h; putfile
+ARG=/M2libc/uefi/sys; putdir
+ARG=/M2libc/uefi/sys/stat.c; putfile
+ARG=/M2libc/uefi/uefi.c; putfile
+ARG=/M2libc/uefi/unistd.c; putfile
+ARG=/M2libc/unistd.h; putfile
+ARG=/M2libc/x86; putdir
+ARG=/M2libc/x86/ELF-x86-debug.hex2; putfile
+ARG=/M2libc/x86/ELF-x86.hex2; putfile
+ARG=/M2libc/x86/libc-core.M1; putfile
+ARG=/M2libc/x86/libc-full.M1; putfile
+ARG=/M2libc/x86/linux; putdir
+ARG=/M2libc/x86/linux/bootstrap.c; putfile
+ARG=/M2libc/x86/linux/fcntl.c; putfile
+ARG=/M2libc/x86/linux/sys; putdir
+ARG=/M2libc/x86/linux/sys/stat.c; putfile
+ARG=/M2libc/x86/linux/unistd.c; putfile
+ARG=/M2libc/x86/x86_defs.M1; putfile
+ARG=/mescc-tools-extra; putdir
+ARG=/mescc-tools-extra/catm.c; putfile
+ARG=/mescc-tools-extra/chmod.c; putfile
+ARG=/mescc-tools-extra/cp.c; putfile
+ARG=/mescc-tools-extra/match.c; putfile
+ARG=/mescc-tools-extra/mescc-tools-extra.kaem; putfile
+ARG=/mescc-tools-extra/mkdir.c; putfile
+ARG=/mescc-tools-extra/replace.c; putfile
+ARG=/mescc-tools-extra/rm.c; putfile
+ARG=/mescc-tools-extra/sha256sum.c; putfile
+ARG=/mescc-tools-extra/unbz2.c; putfile
+ARG=/mescc-tools-extra/ungz.c; putfile
+ARG=/mescc-tools-extra/untar.c; putfile
+ARG=/mescc-tools-extra/unxz.c; putfile
+ARG=/mescc-tools-extra/wrap.c; putfile
+ARG=/mescc-tools; putdir
+ARG=/mescc-tools/blood-elf.c; putfile
+ARG=/mescc-tools/get_machine.c; putfile
+ARG=/mescc-tools/hex2_linker.c; putfile
+ARG=/mescc-tools/hex2_word.c; putfile
+ARG=/mescc-tools/hex2.c; putfile
+ARG=/mescc-tools/hex2.h; putfile
+ARG=/mescc-tools/Kaem; putdir
+ARG=/mescc-tools/Kaem/kaem_globals.c; putfile
+ARG=/mescc-tools/Kaem/kaem.c; putfile
+ARG=/mescc-tools/Kaem/kaem.h; putfile
+ARG=/mescc-tools/Kaem/variable.c; putfile
+ARG=/mescc-tools/M1-macro.c; putfile
+ARG=/mescc-tools/stringify.c; putfile
+ARG=/x86; putdir
+ARG=/x86.answers; putfile
+ARG=/x86/artifact; putdir
+ARG=/x86/bin; putdir
+ARG=/x86/catm_x86.hex2; putfile
+ARG=/x86/cc_x86.M1; putfile
+ARG=/x86/ELF-i386.hex2; putfile
+ARG=/x86/hex0_x86.hex0; putfile
+ARG=/x86/hex1_x86.hex0; putfile
+ARG=/x86/hex2_x86.hex1; putfile
+ARG=/x86/kaem-minimal.hex0; putfile
+ARG=/x86/kaem.run; putfile
+ARG=/x86/libc-core.M1; putfile
+ARG=/x86/M0_x86.hex2; putfile
+ARG=/x86/mescc-tools-full-kaem.kaem; putfile
+ARG=/x86/mescc-tools-mini-kaem.kaem; putfile
+ARG=/x86/mescc-tools-seed-kaem.kaem; putfile
+ARG=/x86/x86_defs.M1; putfile
+
+ARG=/tmp; putdir
+ARG=/opt; putdir
+ARG=/opt/abuild; putdir
+ARG=/opt/abuild/src; putdir
+ARG=/opt/abuild/src/wcw.c; putfile
+ARG=/opt/abuild/src/zrpad.c; putfile
+
+ARG=/builder-hex0; putdir
+ARG=/builder-hex0/builder-hex0-x86-stage2.hex0; putfile
+ARG=/builder-hex0/builder-hex0-x86-stage1.hex0; putfile
+
+create_file "hex0 /x86/hex0_x86.hex0 /bootstrap-seeds/POSIX/x86/hex0-seed" --output next
+catm curr prev next
+catm prev curr
+
+create_file "hex0 /x86/kaem-minimal.hex0 /bootstrap-seeds/POSIX/x86/kaem-optional-seed" --output next
+catm curr prev next
+catm prev curr
+
+create_file "/bootstrap-seeds/POSIX/x86/kaem-optional-seed /kaem.x86" --output next
+catm curr prev next
+catm prev curr
+
+zrpad prev 262144 next
+catm curr prev next
+catm prev curr
+
+mkdir -p /dev
+catm /dev/hda curr
