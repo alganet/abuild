@@ -65,6 +65,8 @@ ARG=/M2-Mesoplanet/cc.c; putfile
 ARG=/M2-Mesoplanet/cc.h; putfile
 ARG=/M2-Planet; putdir
 ARG=/M2-Planet/cc_core.c; putfile
+ARG=/M2-Planet/cc_emit.c; putfile
+ARG=/M2-Planet/cc_emit.h; putfile
 ARG=/M2-Planet/cc_globals.c; putfile
 ARG=/M2-Planet/cc_macro.c; putfile
 ARG=/M2-Planet/cc_reader.c; putfile
@@ -100,8 +102,14 @@ ARG=/M2libc/fcntl.h; putfile
 ARG=/M2libc/knight; putdir
 ARG=/M2libc/knight/linux; putdir
 ARG=/M2libc/knight/linux/fcntl.c; putfile
+ARG=/M2libc/knight/linux/unistd.c; putfile
+ARG=/M2libc/knight/linux/sys; putdir
+ARG=/M2libc/knight/linux/sys/stat.c; putfile
 ARG=/M2libc/knight/native; putdir
 ARG=/M2libc/knight/native/fcntl.c; putfile
+ARG=/M2libc/knight/native/unistd.c; putfile
+ARG=/M2libc/knight/native/sys; putdir
+ARG=/M2libc/knight/native/sys/stat.c; putfile
 ARG=/M2libc/riscv32; putdir
 ARG=/M2libc/riscv32/linux; putdir
 ARG=/M2libc/riscv32/linux/fcntl.c; putfile
@@ -115,6 +123,8 @@ ARG=/M2libc/riscv64/linux/sys; putdir
 ARG=/M2libc/riscv64/linux/sys/stat.c; putfile
 ARG=/M2libc/riscv64/linux/unistd.c; putfile
 ARG=/M2libc/signal.h; putfile
+ARG=/M2libc/stdarg.h; putfile
+ARG=/M2libc/stdbool.h; putfile
 ARG=/M2libc/stddef.h; putfile
 ARG=/M2libc/stdint.h; putfile
 ARG=/M2libc/stdio.c; putfile
@@ -218,7 +228,7 @@ create_file "/bootstrap-seeds/POSIX/x86/kaem-optional-seed /kaem.x86" --output n
 catm curr prev next
 catm prev curr
 
-zrpad prev 262144 next
+zrpad prev 524288 next
 catm curr prev next
 catm prev curr
 

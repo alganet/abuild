@@ -17,8 +17,8 @@ cd "$SH_ROOT"
 
 $MKDIR -p "files/vendor"
 
-if ! test -f files/vendor/stage0-posix-1.7.0.tar.gz
-then $WGET -O files/vendor/stage0-posix-1.7.0.tar.gz https://github.com/oriansj/stage0-posix/releases/download/Release_1.7.0/stage0-posix-1.7.0.tar.gz
+if ! test -f files/vendor/stage0-posix-1.9.1.tar.gz
+then $WGET -O files/vendor/stage0-posix-1.9.1.tar.gz https://github.com/oriansj/stage0-posix/releases/download/Release_1.9.1/stage0-posix-1.9.1.tar.gz
 fi
 
 if ! test -f files/vendor/builder-hex0-main.tar.gz
@@ -28,9 +28,9 @@ fi
 if ! test -d build/descend
 then
     $MKDIR -p build/descend/builder-hex0
-    $GZIP --decompress --keep files/vendor/stage0-posix-1.7.0.tar.gz
-    $TAR --extract --strip-components=1 --directory build/descend --file=files/vendor/stage0-posix-1.7.0.tar
-    $RM -f files/vendor/stage0-posix-1.7.0.tar
+    $GZIP --decompress --keep files/vendor/stage0-posix-1.9.1.tar.gz
+    $TAR --extract --strip-components=1 --directory build/descend --file=files/vendor/stage0-posix-1.9.1.tar
+    $RM -f files/vendor/stage0-posix-1.9.1.tar
     $GZIP --decompress --keep files/vendor/builder-hex0-main.tar.gz
     $TAR --extract --strip-components=1 --directory "build/descend/builder-hex0" --file=files/vendor/builder-hex0-main.tar
     $RM files/vendor/builder-hex0-main.tar
@@ -56,4 +56,11 @@ fi
 
 cd "$SH_ROOT"
 
+if ! test -f build/k0.answers
+then
+    ./build/descend/x86/bin/sha256sum build/k0.img -o k0.answers
+fi
+
 $QEMU --enable-kvm -m 2G -nographic -machine kernel-irqchip=split -drive file="build/k0.img",format=raw --no-reboot
+
+./build/descend/x86/bin/sha256sum -c k0.answers
