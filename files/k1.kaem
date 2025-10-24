@@ -1,5 +1,6 @@
 cd /
 
+/x86/bin/kaem --verbose --strict --file pre-build.kaem
 /x86/bin/kaem --verbose --strict --file k0.kaem
 
-echo Hello
+echo Hello from inside the image

@@ -3,8 +3,19 @@ sbuild
 
 sbuild is a proof-of-concept prototype of a full source bootstrap system for x86.
 
-It's the smallest (to date) self-hosting bootable image that can create itself
-from itself.
+It's the smallest (to date) self-hosting bootable image that can recreate itself
+from within itself.
+
+Intructions
+-----------
+
+Run `sh boot.sh`. You should see `build/k0.img: OK`, which proves the image
+generated from inside the bootable image is identical to the image itself.
+
+To prove that an image is really written, and the sha256sum is not just
+checking the artifact from the host system, you can remove `build/k0.img` and 
+run `FORCE_FAIL=yes sh boot.sh`, which will introduce a change to 
+`build/descend/files/seal` during the inner image build, forcing a mismatch.
 
 Problem
 -------

@@ -8,7 +8,7 @@ CP="${CP:-$(command -v cp)}"
 GZIP="${GZIP:-$(command -v gzip)}"
 TAR="${TAR:-$(command -v tar)}"
 
-set -euf
+set -eufx
 PATH=
 
 SH_FILE="$PWD/$0"
@@ -45,11 +45,17 @@ cd "$SH_ROOT/build/descend"
 ./x86/artifact/hex0 x86/kaem-minimal.hex0 bootstrap-seeds/POSIX/x86/kaem-optional-seed
 
 if ! ./x86/bin/sha256sum -c x86.answers
-then ./bootstrap-seeds/POSIX/x86/kaem-optional-seed kaem.x86
+then
+    ./bootstrap-seeds/POSIX/x86/kaem-optional-seed kaem.x86
 fi
 
 if ! test -f ../k0.img
 then
+    if ./x86/bin/match "yes" "${FORCE_FAIL:-no}"
+    then ./x86/bin/catm ./pre-build.kaem ./seal-break.kaem
+    else ./x86/bin/catm ./pre-build.kaem ./noop.kaem
+    fi
+
     ./x86/bin/wrap /x86/bin/kaem --verbose --strict --file k0.kaem
     ./x86/bin/cp ./dev/hda ../k0.img
 fi

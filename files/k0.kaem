@@ -44,6 +44,9 @@ catm prev curr
 ARG=/; putdir
 ARG=/dev; putdir
 
+ARG=/seal; putfile
+ARG=/pre-build.kaem; putfile
+ARG=/seal-break.kaem; putfile
 ARG=/k0.kaem; putfile
 ARG=/k1.kaem; putfile
 ARG=/putdir.kaem; putfile
