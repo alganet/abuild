@@ -18,6 +18,7 @@ cd /opt/abuild
 mkdir -p /bin
 M2-Mesoplanet --operating-system Linux --architecture x86 -f src/wcw.c -o /bin/wcw
 M2-Mesoplanet --operating-system Linux --architecture x86 -f src/zrpad.c -o /bin/zrpad
+M2-Mesoplanet --operating-system Linux --architecture x86 -f src/bh0x.c -o /bin/bh0x
 
 mkdir -p /opt/abuild/tmp
 cd /opt/abuild/tmp
@@ -214,10 +215,19 @@ ARG=/opt/abuild; putdir
 ARG=/opt/abuild/src; putdir
 ARG=/opt/abuild/src/wcw.c; putfile
 ARG=/opt/abuild/src/zrpad.c; putfile
+ARG=/opt/abuild/src/bh0x.c; putfile
 
 ARG=/builder-hex0; putdir
 ARG=/builder-hex0/builder-hex0-x86-stage2.hex0; putfile
 ARG=/builder-hex0/builder-hex0-x86-stage1.hex0; putfile
+
+ARG=/vendor; putdir
+ARG=/vendor/mes-0.27.1.tar.gz; putfile
+ARG=/vendor/nyacc-1.00.2-lb1.tar.gz; putfile
+ARG=/vendor/tcc-0.9.26-1147-gee75a10c.tar.gz; putfile
+ARG=/vendor/tcc-0.9.27.tar.bz2; putfile
+ARG=/vendor/fiwix-1.5.0-lb1.tar.gz; putfile
+ARG=/vendor/lwext4-1.0.0-lb1.tar.gz; putfile
 
 create_file "hex0 /x86/hex0_x86.hex0 /bootstrap-seeds/POSIX/x86/hex0-seed" --output next
 catm curr prev next

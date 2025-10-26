@@ -25,6 +25,30 @@ if ! test -f files/vendor/builder-hex0-main.tar.gz
 then $WGET -O files/vendor/builder-hex0-main.tar.gz https://github.com/ironmeld/builder-hex0/archive/refs/heads/main.tar.gz
 fi
 
+if ! test -f files/vendor/mes-0.27.1.tar.gz
+then $WGET -O files/vendor/mes-0.27.1.tar.gz https://ftp.gnu.org/gnu/mes/mes-0.27.1.tar.gz
+fi
+
+if ! test -f files/vendor/nyacc-1.00.2-lb1.tar.gz
+then $WGET -O files/vendor/nyacc-1.00.2-lb1.tar.gz https://github.com/Googulator/nyacc/releases/download/V1.00.2-lb1/nyacc-1.00.2-lb1.tar.gz
+fi
+
+if ! test -f files/vendor/tcc-0.9.26-1147-gee75a10c.tar.gz
+then $WGET -O files/vendor/tcc-0.9.26-1147-gee75a10c.tar.gz https://lilypond.org/janneke/tcc/tcc-0.9.26-1147-gee75a10c.tar.gz
+fi
+
+if ! test -f files/vendor/tcc-0.9.27.tar.bz2
+then $WGET -O files/vendor/tcc-0.9.27.tar.bz2 https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2
+fi
+
+if ! test -f files/vendor/fiwix-1.5.0-lb1.tar.gz
+then $WGET -O files/vendor/fiwix-1.5.0-lb1.tar.gz https://github.com/mikaku/Fiwix/releases/download/v1.5.0-lb1/fiwix-1.5.0-lb1.tar.gz
+fi
+
+if ! test -f files/vendor/lwext4-1.0.0-lb1.tar.gz
+then $WGET -O files/vendor/lwext4-1.0.0-lb1.tar.gz https://github.com/rick-masters/lwext4/releases/download/v1.0.0-lb1/lwext4-1.0.0-lb1.tar.gz
+fi
+
 if ! test -d build/descend
 then
     $MKDIR -p build/descend/builder-hex0
@@ -68,5 +92,8 @@ then
 fi
 
 $QEMU --enable-kvm -m 2G -nographic -machine kernel-irqchip=split -drive file="build/k0.img",format=raw --no-reboot
+
+./build/descend/x86/bin/mkdir -p "$SH_ROOT/build/k0"
+./build/descend/bin/bh0x "$SH_ROOT/build/k0.img" "$SH_ROOT/build/k0"
 
 ./build/descend/x86/bin/sha256sum -c k0.answers
