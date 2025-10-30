@@ -1,10 +1,10 @@
 [#]:: (SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>)
 [#]:: (SPDX-License-Identifier: GPL-3.0-or-later)
 
-sbuild
+abuild
 ======
 
-sbuild is a proof-of-concept prototype of a full source bootstrap system for x86.
+abuild is a proof-of-concept prototype of a full source bootstrap system for x86.
 
 It's the smallest (to date) self-hosting bootable image that can recreate itself
 from within itself.
@@ -28,7 +28,7 @@ The initial kick of a full source bootstrap system is *creating a bootable image
 In projects such as live-bootstrap, this is achieved with the help of external tools,
 most prominently, python.
 
-sbuild aims to explore this space: the tools used to create a first bootable image,
+abuild aims to explore this space: the tools used to create a first bootable image,
 from a bootstrapper's approach.
 
 Solution

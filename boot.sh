@@ -38,7 +38,7 @@ cd "$SH_ROOT/build/descend"
 ./bootstrap-seeds/POSIX/x86/hex0-seed x86/hex0_x86.hex0 x86/artifact/hex0
 ./x86/artifact/hex0 x86/kaem-minimal.hex0 bootstrap-seeds/POSIX/x86/kaem-optional-seed
 
-if ! ./x86/bin/sha256sum -c x86.answers
+if ! test -f ./x86/bin/sha256sum || ! ./x86/bin/sha256sum -c x86.answers
 then
     ./bootstrap-seeds/POSIX/x86/kaem-optional-seed kaem.x86
 fi
