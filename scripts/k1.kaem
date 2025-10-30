@@ -3,7 +3,7 @@
 
 cd /
 
-/x86/bin/kaem --verbose --strict --file pre-build.kaem
-/x86/bin/kaem --verbose --strict --file k0.kaem
+/x86/bin/kaem --verbose --strict --file /scripts/pre-build.kaem
+/x86/bin/kaem --verbose --strict --file /scripts/k0.kaem
 
 echo Hello from inside the image

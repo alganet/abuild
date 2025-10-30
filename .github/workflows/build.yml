@@ -37,24 +37,24 @@ jobs:
         env:
           cache-name: cache-distfiles
         with:
-          path: files/vendor
-          key: build-${{ env.cache-name }}-${{ hashFiles('fetch.sh') }}
+          path: distfiles
+          key: build-${{ env.cache-name }}-${{ hashFiles('distfiles.sh') }}
           restore-keys: |
             build-${{ env.cache-name }}-
             build-
 
       - name: Fetch distfiles
         run: |
-          sh fetch.sh
+          sh distfiles.sh
 
-      # We need to run this helper after fetch.sh has downloaded distfiles
-      - name: Check licenses
+      # We need to run this helper after distfiles.sh has downloaded distfiles
+      - name: Verify licenses
         run: |
-          sh files/check-licenses.sh
+          sh LICENSES/verify.sh
 
       - name: Build k0.img
         run: |
-          QEMU=: sh boot.sh
+          QEMU=: sh build.sh
 
       # https://github.blog/changelog/2023-02-23-hardware-accelerated-android-virtualization-on-actions-windows-and-linux-larger-hosted-runners/
       - name: Enable KVM for QEMU
@@ -66,14 +66,14 @@ jobs:
       # Finally boot it
       - name: Boot k0.img
         run: |
-          sh boot.sh
+          sh build.sh
 
       # Remove the created image and verify sha256sum against counter-proof
       - name: Check sha256sum counter-proof
         run: |
           rm build/k0.img
-          ! FORCE_FAIL=yes sh boot.sh &&
-          echo "'FAILED' message here is normal, it means boot.sh caught the broken seal"
+          ! FORCE_FAIL=yes sh build.sh &&
+          echo "'FAILED' message here is normal, it means build.sh caught the broken seal"
 
       - name: Archive k0.img
         uses: actions/upload-artifact@v4

@@ -12,13 +12,13 @@ from within itself.
 Intructions
 -----------
 
-Run `sh boot.sh`. You should see `build/k0.img: OK`, which proves the image
+Run `sh build.sh`. You should see `build/k0.img: OK`, which proves the image
 generated from inside the bootable image is identical to the image itself.
 
 To prove that an image is really written, and the sha256sum is not just
 checking the artifact from the host system, you can remove `build/k0.img` and 
-run `FORCE_FAIL=yes sh boot.sh`, which will introduce a change to 
-`build/descend/files/seal` during the inner image build, forcing a mismatch.
+run `FORCE_FAIL=yes sh build.sh`, which will introduce a change to 
+`build/host/files/seal` during the inner image build, forcing a mismatch.
 
 Problem
 -------
@@ -50,9 +50,9 @@ Steps
 
 Phase 1: "dirty" stage0 bootstrap (still depends on pre-existing kernel and tools)
 
- - boot.sh: download stage0-posix and builder-hex0.
- - boot.sh: run stage0-posix x86 build from in the host system.
- - boot.sh: run k0.kaem inside mescc-tools-extra's `wrap` program (simple chroot clone).
+ - build.sh: download stage0-posix and builder-hex0.
+ - build.sh: run stage0-posix x86 build from in the host system.
+ - build.sh: run k0.kaem inside mescc-tools-extra's `wrap` program (simple chroot clone).
 
 Phase 2: "dirty" image creation (still depends on existing kernel, all tools bootstrapped)
 
@@ -65,8 +65,8 @@ Phase 2: "dirty" image creation (still depends on existing kernel, all tools boo
 
 Phase 3: "clean" image creation (kernel and tools built entirely from source)
 
- - boot.sh: copy `build/dev/hda` to `build/k0.img` (saves the bootable image)
- - boot.sh: boots `k0.img` within `qemu-system-i386`.
+ - build.sh: copy `build/dev/hda` to `build/k0.img` (saves the bootable image)
+ - build.sh: boots `k0.img` within `qemu-system-i386`.
  - builder-hex0: build the hex0 seed.
  - builder-hex0: build `kaem-optional-seed`.
  - builder-hex0: bootstraps stage0-posix-x86 (again, now inside qemu).
