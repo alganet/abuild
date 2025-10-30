@@ -6,7 +6,7 @@
 abi <abi/4.0>,
 include <tunables/global>
 
-profile wrap /home/runner/work/sbuild/sbuild/build/descend/x86/bin/wrap flags=(unconfined) {
+profile wrap /home/runner/work/abuild/abuild/build/descend/x86/bin/wrap flags=(unconfined) {
   userns,
 
   include if exists <local/wrap>
