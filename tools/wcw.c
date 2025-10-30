@@ -6,53 +6,63 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
 #include "M2libc/bootstrappable.h"
+#include "M2libc/fcntl.h"
 
-// CONSTANT BUFFER_SIZE 4096
 #define BUFFER_SIZE 4096
+#define HEADER_SIZE 2048
+#define FILE_MODE 0755
+#define BASE_TEN 10
 
-int main(int argc, char **argv) {
-  if (2 > argc) {
-    fputs("wcw requires 2 arguments\n", stderr);
-    exit(EXIT_FAILURE);
+void cleanup(char* buffer, char* header, int input_fd, int output_fd) {
+  if (buffer)
+    free(buffer);
+  if (header)
+    free(header);
+  if (input_fd >= 0)
+    close(input_fd);
+  if (output_fd >= 0)
+    close(output_fd);
+}
+
+void error_exit(const char* msg) {
+  fputs(msg, stderr);
+  exit(EXIT_FAILURE);
+}
+
+int main(int argc, char** argv) {
+  if (argc < 3) {
+    error_exit("Error: wcw requires 2 arguments: <output_file> <input_file>\n");
   }
 
-  // int output = open(argv[1], O_WRONLY|O_CREAT|O_APPEND, 384);
-  int output = open(argv[1], 577, 384);
-  if (-1 == output) {
-    fputs("The file: ", stderr);
-    fputs(argv[1], stderr);
-    fputs(" is not a valid output file name\n", stderr);
-    exit(EXIT_FAILURE);
+  int output_fd = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC, FILE_MODE);
+  if (output_fd == -1) {
+    error_exit("Error: Cannot open output file\n");
   }
 
-  int bytes;
-  int bsize;
-  char *buffer = calloc(BUFFER_SIZE + 1, sizeof(char));
-  char *tbytes = malloc(1024);
-  int input;
-  bsize = 0;
-  input = open(argv[2], 0, 0);
-  if (-1 == input) {
-    fputs("The file: ", stderr);
-    fputs(argv[2], stderr);
-    fputs(" is not a valid input file name\n", stderr);
-    exit(EXIT_FAILURE);
+  int total_bytes = 0;
+  char* buffer = calloc(BUFFER_SIZE + 1, sizeof(char));
+  char* header = malloc(HEADER_SIZE);
+  int input_fd = open(argv[2], O_RDONLY, 0);
+  if (input_fd == -1) {
+    cleanup(buffer, header, -1, output_fd);
+    error_exit("Error: Cannot open input file\n");
   }
-keep:
-  bytes = read(input, buffer, BUFFER_SIZE);
-  bsize += bytes;
-  if (BUFFER_SIZE == bytes)
-    goto keep;
 
-  tbytes = strcat(tbytes, "src ");
-  tbytes = strcat(tbytes, int2str(bsize, 10, FALSE));
-  tbytes = strcat(tbytes, " ");
-  tbytes = strcat(tbytes, argv[2]);
-  tbytes = strcat(tbytes, "\n\0");
-  write(output, tbytes, strlen(tbytes));
+  int bytes_read = 0;
+  do {
+    bytes_read = read(input_fd, buffer, BUFFER_SIZE);
+    if (bytes_read < 0) {
+      cleanup(buffer, header, input_fd, output_fd);
+      error_exit("Error: Failed to read input file\n");
+    }
+    total_bytes += bytes_read;
+  } while (bytes_read == BUFFER_SIZE);
 
-  free(buffer);
+  snprintf(header, HEADER_SIZE, "src %s %s\n",
+           int2str(total_bytes, BASE_TEN, FALSE), argv[2]);
+  write(output_fd, header, strlen(header));
+
+  cleanup(buffer, header, input_fd, output_fd);
   return EXIT_SUCCESS;
 }

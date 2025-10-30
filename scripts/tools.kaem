@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+M2-Mesoplanet --operating-system Linux --architecture x86 -f "/tools/wcw.c" -o "/bin/wcw"
+M2-Mesoplanet --operating-system Linux --architecture x86 -f "/tools/zrpad.c" -o "/bin/zrpad"
+M2-Mesoplanet --operating-system Linux --architecture x86 -f "/tools/bh0x.c" -o "/bin/bh0x"
