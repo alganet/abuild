@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 wcw next "${ARG}"
 catm curr prev next "${ARG}"
 catm prev curr

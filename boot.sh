@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env sh
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 QEMU="${QEMU:-$(command -v qemu-system-i386)}"
 WGET="${WGET:-$(command -v wget)}"
