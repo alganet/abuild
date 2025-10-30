@@ -23,47 +23,12 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  char *stage1fname = "/stage1.img";
-  char *stage1file =
-      calloc(strlen(argv[2]) + strlen(stage1fname) + 1, sizeof(char));
-  strcat(stage1file, argv[2]);
-  strcat(stage1file, stage1fname);
-  int output = open(stage1file, O_WRONLY | O_CREAT | O_TRUNC, 384);
-  if (-1 == output) {
-    fputs("bThe file: ", stderr);
-    fputs(stage1fname, stderr);
-    fputs(" is not a valid output file name\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-
-  char *bh0stage1 = calloc(512 + 1, sizeof(char));
-  int bh0stage1bytes = read(input, bh0stage1, 512);
-  write(output, bh0stage1, bh0stage1bytes);
-  close(output);
-
-  char *stage2fname = "/stage2.hex0";
-  char *stage2file =
-      calloc(strlen(argv[2]) + strlen(stage2fname) + 1, sizeof(char));
-  strcat(stage2file, argv[2]);
-  strcat(stage2file, stage2fname);
-  int output2 = open(stage2file, O_WRONLY | O_CREAT | O_TRUNC, 384);
-  if (-1 == output2) {
-    fputs("cThe file: ", stderr);
-    fputs(stage2file, stderr);
-    fputs(" is not a valid output2 file name\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-
-  int bytes;
-  int bsize;
-  char *bh0stage2 = calloc(512 + 1, sizeof(char));
+  char *buffer = calloc(512 + 1, sizeof(char));
+  int bytes = read(input, buffer, 512);
 keep:
-  bytes = read(input, bh0stage2, 512);
-  bsize += bytes;
-  write(output2, bh0stage2, strlen(bh0stage2));
-  if (512 == strlen(bh0stage2))
+  bytes = read(input, buffer, 512);
+  if (512 == strlen(buffer))
     goto keep;
-  close(output2);
 
   char *instr = calloc(4, sizeof(char));
   char *fname = calloc(1024, sizeof(char));
@@ -77,7 +42,6 @@ keep:
   int output3;
 
   strcat(entpath, argv[2]);
-  strcat(entpath, "/src");
   mkdir(entpath, 0755);
 
 newentry:
@@ -104,8 +68,6 @@ newentry:
     goto newentry;
   }
 
-  fputs(instr, stderr);
-
   strcpy(fsize, "");
   strcpy(fname, "");
 
@@ -118,21 +80,15 @@ sizescan:
 
   fisize = atoi(fsize);
 
-  fputs(fsize, stderr);
-
 fnamescan:
   bytes = read(input, c, 1);
   if (0 != strcmp(c, "\n")) {
     strcat(fname, c);
     goto fnamescan;
   }
-  fputs(" ", stderr);
-  fputs(fname, stderr);
-  fputs("\n", stderr);
 
   strcpy(entpath, "");
   strcat(entpath, argv[2]);
-  strcat(entpath, "/src");
   strcat(entpath, fname);
 
   if (0 == fisize) {
@@ -142,7 +98,6 @@ fnamescan:
 
   strcpy(xfile, "");
   strcat(xfile, argv[2]);
-  strcat(xfile, "/src");
   strcat(xfile, fname);
   output3 = open(xfile, O_WRONLY | O_CREAT | O_TRUNC, 384);
   if (-1 == output3) {

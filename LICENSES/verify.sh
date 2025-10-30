@@ -23,11 +23,11 @@ create_license_vars () {
 
 find_spdx_ids () {
     { grep --exclude-dir=".git" -ar "SPDX-License-Identifier*" . || true; } |
-    { grep -v "check-licenses.sh" || true; } |
+    { grep -v "LICENSES/verify.sh" || true; } |
         sed 's/^\(^[^:]*\):.*SPDX-License-Identifier: \([A-Za-z0-9.-]*\).*$/\1    \2/g' |
         sort -u
 
-    find files/vendor -name '*.tar.*' |
+    find distfiles -name '*.tar.*' |
     while read -r tar_file
     do
         case "$tar_file" in

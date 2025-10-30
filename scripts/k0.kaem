@@ -5,30 +5,27 @@ M2LIBC_PATH="/M2libc"
 PATH="/x86/bin:/bin"
 TMPDIR="/tmp"
 
-mkdir -p /tmp
-mkdir -p /tmp/denv
+alias create_file="replace --file /scripts/noop.kaem --match-on \# --replace-with"
+alias putdir="/x86/bin/kaem --file /scripts/putdir.kaem"
+alias putfile="/x86/bin/kaem --file /scripts/putfile.kaem"
 
 cd /
-catm after.kaem k1.kaem
+mkdir -p /tmp
+mkdir -p /bin
 mkdir -p /bootstrap-seeds
 mkdir -p /bootstrap-seeds/NATIVE
 mkdir -p /bootstrap-seeds/NATIVE/x86/
 
+catm after.kaem /scripts/k1.kaem
+
 /bootstrap-seeds/POSIX/x86/hex0-seed /x86/hex0_x86.hex0 /x86/artifact/hex0
 /x86/artifact/hex0 /builder-hex0/builder-hex0-x86-stage1.hex0 /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
 
-cd /opt/abuild
-mkdir -p /bin
-M2-Mesoplanet --operating-system Linux --architecture x86 -f src/wcw.c -o /bin/wcw
-M2-Mesoplanet --operating-system Linux --architecture x86 -f src/zrpad.c -o /bin/zrpad
-M2-Mesoplanet --operating-system Linux --architecture x86 -f src/bh0x.c -o /bin/bh0x
+M2-Mesoplanet --operating-system Linux --architecture x86 -f /tools/wcw.c -o /bin/wcw
+M2-Mesoplanet --operating-system Linux --architecture x86 -f /tools/zrpad.c -o /bin/zrpad
+M2-Mesoplanet --operating-system Linux --architecture x86 -f /tools/bh0x.c -o /bin/bh0x
 
-mkdir -p /opt/abuild/tmp
-cd /opt/abuild/tmp
-
-alias create_file="replace --file /noop.kaem --match-on \# --replace-with"
-alias putdir="/x86/bin/kaem --file /putdir.kaem"
-alias putfile="/x86/bin/kaem --file /putfile.kaem"
+cd /tmp
 
 catm curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
 catm prev curr
@@ -49,14 +46,17 @@ ARG=/; putdir
 ARG=/dev; putdir
 
 ARG=/seal; putfile
-ARG=/pre-build.kaem; putfile
-ARG=/seal-break.kaem; putfile
-ARG=/k0.kaem; putfile
-ARG=/k1.kaem; putfile
-ARG=/putdir.kaem; putfile
-ARG=/putfile.kaem; putfile
-ARG=/noop.kaem; putfile
 ARG=/after.kaem; putfile
+
+ARG=/scripts; putdir
+ARG=/scripts/pre-build.kaem; putfile
+ARG=/scripts/seal-break.kaem; putfile
+ARG=/scripts/k0.kaem; putfile
+ARG=/scripts/k1.kaem; putfile
+ARG=/scripts/putdir.kaem; putfile
+ARG=/scripts/putfile.kaem; putfile
+ARG=/scripts/noop.kaem; putfile
+
 ARG=/bootstrap-seeds; putdir
 ARG=/bootstrap-seeds/POSIX; putdir
 ARG=/bootstrap-seeds/POSIX/x86; putdir
@@ -212,25 +212,22 @@ ARG=/x86/mescc-tools-mini-kaem.kaem; putfile
 ARG=/x86/mescc-tools-seed-kaem.kaem; putfile
 ARG=/x86/x86_defs.M1; putfile
 
-ARG=/tmp; putdir
-ARG=/opt; putdir
-ARG=/opt/abuild; putdir
-ARG=/opt/abuild/src; putdir
-ARG=/opt/abuild/src/wcw.c; putfile
-ARG=/opt/abuild/src/zrpad.c; putfile
-ARG=/opt/abuild/src/bh0x.c; putfile
+ARG=/tools; putdir
+ARG=/tools/wcw.c; putfile
+ARG=/tools/zrpad.c; putfile
+ARG=/tools/bh0x.c; putfile
 
 ARG=/builder-hex0; putdir
 ARG=/builder-hex0/builder-hex0-x86-stage2.hex0; putfile
 ARG=/builder-hex0/builder-hex0-x86-stage1.hex0; putfile
 
-ARG=/vendor; putdir
-ARG=/vendor/mes-0.27.1.tar.gz; putfile
-ARG=/vendor/nyacc-1.00.2-lb1.tar.gz; putfile
-ARG=/vendor/tcc-0.9.26-1147-gee75a10c.tar.gz; putfile
-ARG=/vendor/tcc-0.9.27.tar.bz2; putfile
-ARG=/vendor/fiwix-1.5.0-lb1.tar.gz; putfile
-ARG=/vendor/lwext4-1.0.0-lb1.tar.gz; putfile
+ARG=/distfiles; putdir
+ARG=/distfiles/mes-0.27.1.tar.gz; putfile
+ARG=/distfiles/nyacc-1.00.2-lb1.tar.gz; putfile
+ARG=/distfiles/tcc-0.9.26-1147-gee75a10c.tar.gz; putfile
+ARG=/distfiles/tcc-0.9.27.tar.bz2; putfile
+ARG=/distfiles/fiwix-1.5.0-lb1.tar.gz; putfile
+ARG=/distfiles/lwext4-1.0.0-lb1.tar.gz; putfile
 
 create_file "hex0 /x86/hex0_x86.hex0 /bootstrap-seeds/POSIX/x86/hex0-seed" --output next
 catm curr prev next
