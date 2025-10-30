@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-build
-files/vendor
+# .gitattributes for GitHub syntax highlighting
+*.kaem linguist-language=Shell
