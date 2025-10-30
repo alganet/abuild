@@ -16,4 +16,5 @@ IncludeBlocks: Merge
 ---
 Language: Cpp
 AllowShortFunctionsOnASingleLine: false
+ColumnLimit: 80
 ...
