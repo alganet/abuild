@@ -1,0 +1,9 @@
+// SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+{
+    // Highlight .kaem files as shell scripts
+    // See: https://github.com/oriansj/mescc-tools/tree/master/Kaem
+    "files.associations": {
+        "*.kaem": "shellscript"
+    },
+}
