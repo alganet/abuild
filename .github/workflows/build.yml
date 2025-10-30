@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 fosslinux <fosslinux@aussies.space>
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 name: Build
 
 on:
@@ -17,31 +21,50 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+
       - name: apparmor profile for wrap
         run: sudo cp .github/workflows/wrap.apparmor /etc/apparmor.d/wrap && sudo systemctl reload apparmor
+
       - name: Install qemu-system-x86
         run: sudo apt update && sudo apt install qemu-system-x86
+
       # https://github.blog/changelog/2023-02-23-hardware-accelerated-android-virtualization-on-actions-windows-and-linux-larger-hosted-runners/
       - name: enable kvm
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+
+      # Build k.0 image but do not boot it
+      - name: build k0.img
+        run: |
+          QEMU=: sh boot.sh
+
+      # We need to run this helper after boot.sh has downloaded distfiles
+      - name: check licenses
+        run: |
+          sh files/check-licenses.sh
+
+      # Finally boot it
+      - name: boot k0.img in qemu
+        run: |
+          sh boot.sh
+
+      # Remove the created image and verify sha256sum against counter-proof
       - name: sha256sum counter-proof
         run: |
+          rm build/k0.img
           ! FORCE_FAIL=yes sh boot.sh &&
-            echo "'FAILED' message here is normal, it means boot.sh caught the broken seal" &&
-            rm build/k0.img
-      - name: sha256sum proof
-        run: sh boot.sh
+          echo "'FAILED' message here is normal, it means boot.sh caught the broken seal"
+
       - name: archive k0.img
         uses: actions/upload-artifact@v4
         with:
           name: k0.img
           path: build/k0.img
+
       - name: archive k0 files
         uses: actions/upload-artifact@v4
         with:
           name: k0
           path: build/k0
-
