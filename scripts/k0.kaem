@@ -19,6 +19,7 @@ mkdir -p /bootstrap-seeds/NATIVE/x86/
 catm after.kaem /scripts/k1.kaem
 
 /bootstrap-seeds/POSIX/x86/hex0-seed /x86/hex0_x86.hex0 /x86/artifact/hex0
+chmod 755 /x86/artifact/hex0
 /x86/artifact/hex0 /builder-hex0/builder-hex0-x86-stage1.hex0 /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
 
 kaem --file /scripts/tools.kaem

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Setup
+description: Setup
+runs:
+  using: composite
+  steps:
+    - uses: awalsh128/cache-apt-pkgs-action@v1
+      with:
+        packages: qemu-system-x86 cpplint
+        version: 1.0
+
+    - uses: actions/cache@v4
+      id: cache-distfiles
+      env:
+        cache-name: cache-distfiles
+      with:
+        path: distfiles
+        key: build-${{ env.cache-name }}-${{ hashFiles('distfiles.sh') }}
+        restore-keys: |
+          build-${{ env.cache-name }}-
+          build-
+
+    - shell: sh
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+          sudo tee /etc/udev/rules.d/99-kvm4all.rules
+
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - shell: sh
+      run: |
+        sudo cp .github/workflows/wrap.apparmor /etc/apparmor.d/wrap &&
+          sudo systemctl reload apparmor
+
+    - shell: sh
+      run: sh distfiles.sh

@@ -1,2 +1,2 @@
 -std=c99
--Ibuild/host
+-Iout/host

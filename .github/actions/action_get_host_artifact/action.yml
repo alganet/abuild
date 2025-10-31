@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Get out_host
+description: Get out_host
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: host_files
+        path: out/host
+    - shell: sh
+      run: chmod +x out/host/bootstrap-seeds/POSIX/x86/hex0-seed out/host/x86/bin/*
