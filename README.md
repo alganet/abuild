@@ -1,76 +1,41 @@
 [#]:: (SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>)
 [#]:: (SPDX-License-Identifier: GPL-3.0-or-later)
 
-abuild
-======
+# abuild
 
-abuild is a proof-of-concept prototype of a full source bootstrap system for x86.
+A proof-of-concept self-hosting bootable x86 image that recreates itself from hex0 seeds.
 
-It's the smallest (to date) self-hosting bootable image that can recreate itself
-from within itself.
+## Quick Start
 
-Intructions
------------
+```sh
+sh run.sh all
+```
 
-Run `sh build.sh`. You should see `build/k0.img: OK`, which proves the image
-generated from inside the bootable image is identical to the image itself.
+This downloads dependencies, builds the toolchain, creates a bootable image, boots it in QEMU, and verifies the image can reproduce itself identically.
 
-To prove that an image is really written, and the sha256sum is not just
-checking the artifact from the host system, you can remove `build/k0.img` and 
-run `FORCE_FAIL=yes sh build.sh`, which will introduce a change to 
-`build/host/files/seal` during the inner image build, forcing a mismatch.
+## What It Does
 
-Problem
--------
+abuild implements a three-phase bootstrap:
 
-The initial kick of a full source bootstrap system is *creating a bootable image*.
+1. **Host Bootstrap** - Downloads stage0-posix and builder-hex0, builds x86 toolchain
+2. **Image Creation** - Creates bootable `out/k0.img` with filesystem and bootstrap tools
+3. **Self-Verification** - Boots image in QEMU, rebuilds itself, proves independence via sha256sum
 
-In projects such as live-bootstrap, this is achieved with the help of external tools,
-most prominently, python.
+Success means the host-built image matches the self-generated image byte-for-byte.
 
-abuild aims to explore this space: the tools used to create a first bootable image,
-from a bootstrapper's approach.
+## Development
 
-Solution
---------
+Fast rebuild (skip QEMU):
+```sh
+sh run.sh make_host make_k0_img
+```
 
-We present a self-hosting system based on stage0-posix-x86 and builder-hex0, able to
-re-construct it's own bootable image from within, using the same script that was used
-to build the image outside.
+Extract image contents:
+```sh
+./out/host/bin/bh0x out/k0.img out/k0
+```
 
-Although the image preparation steps are still required to be performed outside the
-bootstrapped system, once it's bootstrapped, the system is able to perform those
-same steps (Phase 2, see below) from the booted image and produce an exact copy
-of the image that was created outside, therefore proving they're the same.
-
-This drastically reduces the dependencies for the image preparation steps.
-
-Steps
------
-
-Phase 1: "dirty" stage0 bootstrap (still depends on pre-existing kernel and tools)
-
- - build.sh: download stage0-posix and builder-hex0.
- - build.sh: run stage0-posix x86 build from in the host system.
- - build.sh: run k0.kaem inside mescc-tools-extra's `wrap` program (simple chroot clone).
-
-Phase 2: "dirty" image creation (still depends on existing kernel, all tools bootstrapped)
-
- - k0.kaem: re-build the hex0 seed
- - k0.kaem: build builder-hex0-x86-stage1
- - k0.kaem: build `wcw` (partial `wc` clone) and zrpad (partial `dd` clone).
- - k0.kaem: setup `create_file`, `putdir.kaem` and `putfile.kaem` scripts
- - k0.kaem: creates the bootable image using `putdir` and `putfile`.
- - k0.kaem: writes the bootable image to `/dev/hda` (file within wrapped chroot)
-
-Phase 3: "clean" image creation (kernel and tools built entirely from source)
-
- - build.sh: copy `build/dev/hda` to `build/k0.img` (saves the bootable image)
- - build.sh: boots `k0.img` within `qemu-system-i386`.
- - builder-hex0: build the hex0 seed.
- - builder-hex0: build `kaem-optional-seed`.
- - builder-hex0: bootstraps stage0-posix-x86 (again, now inside qemu).
- - k1.kaem (as after.kaem): Runs **Phase 2** (again, now inside qemu).
-
-If everything goes right, **Phase 3** proves that the "dirty" and the "clean"
-images are the same, and therefore, independent of pre-existing non-seed binaries.
+Verify licenses:
+```sh
+sh LICENSES/verify.sh
+```

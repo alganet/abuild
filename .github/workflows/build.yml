@@ -12,81 +12,84 @@ on:
       - main
 
 jobs:
-  build:
-    name: k0.img
+  job_lint:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: cpplint --recursive tools
+      - run: sh LICENSES/verify.sh
 
-      - name: Add apparmor profile for `wrap`
-        run: sudo cp .github/workflows/wrap.apparmor /etc/apparmor.d/wrap && sudo systemctl reload apparmor
-
-      - name: Setup cache for apt packages
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: qemu-system-x86 cpplint
-          version: 1.0
-
-      - name: Setup cache for distfiles
-        id: cache-distfiles
-        uses: actions/cache@v4
+  job_build_host_files:
+    runs-on: ubuntu-24.04
+    needs: job_lint
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: actions/cache@v4
+        id: cache-host-files
         env:
-          cache-name: cache-distfiles
+          cache-name: cache-host-files
         with:
-          path: distfiles
-          key: build-${{ env.cache-name }}-${{ hashFiles('distfiles.sh') }}
+          path: out/host
+          key: build-${{ env.cache-name }}-${{ hashFiles('host.answers') }}
           restore-keys: |
             build-${{ env.cache-name }}-
             build-
-
-      - name: Lint C files
-        run: |
-          cpplint --recursive tools
-
-      - name: Fetch distfiles
-        run: |
-          sh distfiles.sh
-
-      # We need to run this helper after distfiles.sh has downloaded distfiles
-      - name: Verify licenses
-        run: |
-          sh LICENSES/verify.sh
-
-      - name: Build k0.img
-        run: |
-          QEMU=: sh build.sh
-
-      # https://github.blog/changelog/2023-02-23-hardware-accelerated-android-virtualization-on-actions-windows-and-linux-larger-hosted-runners/
-      - name: Enable KVM for QEMU
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      # Finally boot it
-      - name: Boot k0.img
-        run: |
-          sh build.sh
-
-      # Remove the created image and verify sha256sum against counter-proof
-      - name: Check sha256sum counter-proof
-        run: |
-          rm build/k0.img
-          ! FORCE_FAIL=yes sh build.sh &&
-          echo "'FAILED' message here is normal, it means build.sh caught the broken seal"
-
-      - name: Archive k0.img
-        uses: actions/upload-artifact@v4
+      - run: sh run.sh make_host
+      - uses: actions/upload-artifact@v4
         with:
-          name: k0.img
-          path: build/k0.img
+          name: host_files
+          path: out/host
 
-      - name: Archive k0 files
-        uses: actions/upload-artifact@v4
+  job_build_k0_img:
+    runs-on: ubuntu-24.04
+    needs: job_build_host_files
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/action_get_host_artifact
+      - run: sh run.sh make_k0_img sha256sum_k0_answers
+      - run: git diff --exit-code k0.answers
+      - uses: actions/upload-artifact@v4
         with:
-          name: k0
-          path: build/k0
+          name: k0_img
+          path: out/k0.img
+
+  job_test_k0_img:
+    runs-on: ubuntu-24.04
+    needs: job_build_host_files
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/action_get_host_artifact
+      - name: Run seal breaking test
+        run: |
+          # Remove old checksum file
+          rm k0.answers
+
+          # Build k0.img with self-breaking boot (generates new checksum)
+          FORCE_FAIL=yes sh run.sh make_k0_img
+
+          # Checks before booting, it should pass
+          sh run.sh sha256sum_k0_answers
+
+          # Boots the image, it should now self-modify and break the seal
+          sh run.sh boot_k0_img
+
+          # If the check fails, this test passes
+          ! sh run.sh sha256sum_k0_answers &&
+            echo "'FAILED' sha256sum message here is pass, 'PASSED' means fail."
+
+  job_boot_k0_img:
+    runs-on: ubuntu-24.04
+    needs: job_build_k0_img
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: k0_img
+          path: out
+      - run: sh run.sh boot_k0_img
+
