@@ -32,12 +32,16 @@ void error_exit(const char* msg) {
 
 int main(int argc, char** argv) {
   if (argc < 3) {
-    error_exit("Error: wcw requires 2 arguments: <output_file> <input_file>\n");
+    error_exit("Error: wc requires 2 arguments: -c <input_file>\n");
   }
 
-  int output_fd = open(argv[1], O_WRONLY | O_CREAT | O_TRUNC, FILE_MODE);
+  if (!match("-c", argv[1])) {
+    error_exit("Error: only -c flag is supported\n");
+  }
+
+  int output_fd = open("/dev/stdout", O_WRONLY | O_CREAT | O_TRUNC, FILE_MODE);
   if (output_fd == -1) {
-    error_exit("Error: Cannot open output file\n");
+    error_exit("Error: Cannot open /dev/stdout\n");
   }
 
   int total_bytes = 0;
@@ -59,7 +63,7 @@ int main(int argc, char** argv) {
     total_bytes += bytes_read;
   } while (bytes_read == BUFFER_SIZE);
 
-  snprintf(header, HEADER_SIZE, "src %s %s\n",
+  snprintf(header, HEADER_SIZE, "%s %s\n",
            int2str(total_bytes, BASE_TEN, FALSE), argv[2]);
   write(output_fd, header, strlen(header));
 

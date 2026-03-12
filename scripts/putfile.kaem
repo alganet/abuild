@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-wcw next "${ARG}"
+wc -c "${ARG}"
+replace --file /scripts/noop.kaem --match-on \# --replace-with "src " --output /tmp/p
+dd if=/tmp/p bs=4 count=1 of=/tmp/q
+catm next /tmp/q /dev/stdout
 catm curr prev next "${ARG}"
 catm prev curr
