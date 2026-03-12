@@ -29,7 +29,7 @@ cd /tmp
 catm curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
 catm prev curr
 
-zrpad prev 512 next
+dd if=prev bs=512 of=next
 catm curr prev next
 catm prev curr
 
@@ -37,7 +37,7 @@ catm next /builder-hex0/builder-hex0-x86-stage2.hex0
 catm curr prev next
 catm prev curr
 
-zrpad prev 512 next
+dd if=prev bs=512 of=next
 catm curr prev next
 catm prev curr
 
@@ -213,8 +213,8 @@ ARG=/x86/mescc-tools-seed-kaem.kaem; putfile
 ARG=/x86/x86_defs.M1; putfile
 
 ARG=/tools; putdir
-ARG=/tools/wcw.c; putfile
-ARG=/tools/zrpad.c; putfile
+ARG=/tools/wc.c; putfile
+ARG=/tools/dd.c; putfile
 ARG=/tools/bh0x.c; putfile
 
 ARG=/builder-hex0; putdir
@@ -241,7 +241,7 @@ create_file "/bootstrap-seeds/POSIX/x86/kaem-optional-seed /kaem.x86" --output n
 catm curr prev next
 catm prev curr
 
-zrpad prev 524288 next
+dd if=prev bs=524288 of=next
 catm curr prev next
 catm prev curr
 
