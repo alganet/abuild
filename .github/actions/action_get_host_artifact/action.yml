@@ -9,6 +9,6 @@ runs:
     - uses: actions/download-artifact@v4
       with:
         name: host_files
-        path: out/host
+        path: out/host-x86
     - shell: sh
-      run: chmod +x out/host/bootstrap-seeds/POSIX/x86/hex0-seed out/host/x86/bin/*
+      run: chmod +x out/host-x86/bootstrap-seeds/POSIX/x86/hex0-seed out/host-x86/x86/bin/*

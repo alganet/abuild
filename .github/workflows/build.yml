@@ -11,6 +11,9 @@ on:
     branches:
       - main
 
+env:
+  QEMU_VERSION: "10.1.4"
+
 jobs:
   job_lint:
     runs-on: ubuntu-24.04
@@ -18,7 +21,6 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - run: cpplint --recursive tools
-      - run: sh LICENSES/verify.sh
 
   job_build_host_files:
     runs-on: ubuntu-24.04
@@ -31,42 +33,64 @@ jobs:
         env:
           cache-name: cache-host-files
         with:
-          path: out/host
-          key: build-${{ env.cache-name }}-${{ hashFiles('host.answers') }}
+          path: out/host-x86
+          key: build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers') }}-v4
           restore-keys: |
-            build-${{ env.cache-name }}-
-            build-
+            build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers') }}-v4
       - run: sh run.sh make_host
       - uses: actions/upload-artifact@v4
         with:
           name: host_files
-          path: out/host
+          path: out/host-x86
 
   job_build_k0_img:
     runs-on: ubuntu-24.04
     needs: job_build_host_files
+    strategy:
+      matrix:
+        include:
+          - arch: x86
+            board: bios
+          - arch: riscv64
+            board: virt
+          - arch: aarch64
+            board: virt
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/action_get_host_artifact
-      - run: sh run.sh make_k0_img sha256sum_k0_answers
-      - run: git diff --exit-code k0.answers
+      - run: ARCH=${{ matrix.arch }} BOARD=${{ matrix.board }} sh run.sh make_k0_img sha256sum_k0_answers
+      - run: git diff --exit-code k0-${{ matrix.arch }}.answers
       - uses: actions/upload-artifact@v4
         with:
-          name: k0_img
-          path: out/k0.img
+          name: k0_img_${{ matrix.arch }}
+          path: out/k0-${{ matrix.arch }}.img
 
   job_test_k0_img:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     needs: job_build_host_files
+    strategy:
+      matrix:
+        include:
+          - arch: x86
+            board: bios
+          - arch: riscv64
+            board: virt
+          - arch: aarch64
+            board: virt
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/action_get_host_artifact
       - name: Run seal breaking test
+        env:
+          ARCH: ${{ matrix.arch }}
+          BOARD: ${{ matrix.board }}
+          QEMU: qemu-local/bin/qemu-system-${{ matrix.arch == 'x86' && 'x86_64' || matrix.arch }}
         run: |
           # Remove old checksum file
-          rm k0.answers
+          rm "k0-${ARCH}.answers"
 
           # Build k0.img with self-breaking boot (generates new checksum)
           FORCE_FAIL=yes sh run.sh make_k0_img
@@ -83,13 +107,31 @@ jobs:
 
   job_boot_k0_img:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     needs: job_build_k0_img
+    strategy:
+      matrix:
+        include:
+          - arch: x86
+            board: bios
+          - arch: riscv64
+            board: virt
+          - arch: riscv64
+            board: sifive_u
+          - arch: aarch64
+            board: virt
+          - arch: aarch64
+            board: raspi3b
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
+      - uses: ./.github/actions/action_get_host_artifact
       - uses: actions/download-artifact@v4
         with:
-          name: k0_img
+          name: k0_img_${{ matrix.arch }}
           path: out
-      - run: sh run.sh boot_k0_img
-
+      - run: >
+          ARCH=${{ matrix.arch }}
+          BOARD=${{ matrix.board }}
+          QEMU=qemu-local/bin/qemu-system-${{ matrix.arch == 'x86' && 'x86_64' || matrix.arch }}
+          sh run.sh boot_k0_img

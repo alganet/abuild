@@ -3,7 +3,8 @@
 
 cd /
 
-/x86/bin/kaem --verbose --strict --file /scripts/pre-build.kaem
-/x86/bin/kaem --verbose --strict --file /scripts/k0.kaem
+/${STAGE0_HOST}/bin/kaem --verbose --strict --file /scripts/pre-build.kaem
+/${STAGE0_HOST}/bin/catm /scripts/k0-run.kaem /scripts/env.${ARCH}.kaem /scripts/k0.kaem
+/${STAGE0_HOST}/bin/kaem --verbose --strict --file /scripts/k0-run.kaem
 
-echo Hello from inside the image
+echo Hello from inside the ${ARCH} image

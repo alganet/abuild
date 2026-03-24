@@ -8,8 +8,31 @@ runs:
   steps:
     - uses: awalsh128/cache-apt-pkgs-action@v1
       with:
-        packages: qemu-system-x86 cpplint
-        version: 1.0
+        packages: libglib2.0-dev libpixman-1-dev libslirp-dev ninja-build flex python3-venv cpplint make
+        version: 1.2
+
+    - name: Cache QEMU
+      id: cache-qemu
+      uses: actions/cache@v4
+      with:
+        path: qemu-local
+        key: qemu-x86-riscv64-aarch64-${{ env.QEMU_VERSION }}
+
+    - name: Build QEMU (x86_64 + riscv64 + aarch64)
+      if: steps.cache-qemu.outputs.cache-hit != 'true'
+      shell: sh
+      run: |
+        pip install meson
+        git clone --depth 1 --branch v${{ env.QEMU_VERSION }} \
+          https://gitlab.com/qemu-project/qemu.git /tmp/qemu-build
+        cd /tmp/qemu-build
+        ./configure --target-list=x86_64-softmmu,riscv64-softmmu,aarch64-softmmu \
+          --prefix=${{ github.workspace }}/qemu-local \
+          --disable-docs --disable-gtk --disable-sdl \
+          --disable-opengl --disable-virglrenderer
+        make -j$(nproc)
+        make install
+        rm -rf /tmp/qemu-build
 
     - uses: actions/cache@v4
       id: cache-distfiles
@@ -19,8 +42,7 @@ runs:
         path: distfiles
         key: build-${{ env.cache-name }}-${{ hashFiles('distfiles.sh') }}
         restore-keys: |
-          build-${{ env.cache-name }}-
-          build-
+          build-${{ env.cache-name }}-${{ hashFiles('distfiles.sh') }}
 
     - shell: sh
       run: |

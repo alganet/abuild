@@ -1,0 +1,6 @@
+29e3a732342b2880774255a64fac35394ae0204c464cececb317d7bb5b8e636c  out/host-x86/x86.answers
+87c3d44555bd294dbc7be12dd06697235a354247c155eb0eb5a8834a3aad1b59  out/host-x86/bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1-bios.img
+7d7cb58fa4409fcbcf7efbda86a537babac36a674ffd4b850e8ffd80dddee827  out/host-x86/bootstrap-seeds/NATIVE/riscv64/builder-hex0-riscv64-stage1-virt.img
+35b0a87e8c3dfaaadf65d39cfef7581f72edefde5ee845ad564a44ede265876f  out/host-x86/bootstrap-seeds/NATIVE/riscv64/builder-hex0-riscv64-stage1-sifive_u.img
+70a09351dc759c74bea978693e1a27b8b542fd488d2c06787a924aef4a22d2e8  out/host-x86/bootstrap-seeds/NATIVE/aarch64/builder-hex0-aarch64-stage1-virt.img
+838abc73391c7c80f5e18782a054943923d36112a558b89fb4bd11d11f53de81  out/host-x86/bootstrap-seeds/NATIVE/aarch64/builder-hex0-aarch64-stage1-raspi3b.img
