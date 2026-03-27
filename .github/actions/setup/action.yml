@@ -8,7 +8,7 @@ runs:
   steps:
     - uses: awalsh128/cache-apt-pkgs-action@v1
       with:
-        packages: libglib2.0-dev libpixman-1-dev libslirp-dev ninja-build flex python3-venv cpplint make
+        packages: libglib2.0-dev libpixman-1-dev libslirp-dev ninja-build flex python3-venv cpplint make ovmf unzip
         version: 1.2
 
     - name: Cache QEMU

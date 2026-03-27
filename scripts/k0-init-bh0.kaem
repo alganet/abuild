@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# x86: hex0-seed -> hex0 -> stage1.img, then stage1 + stage2 disk assembly
+if match ${ARCH} x86
+then
+    /bootstrap-seeds/POSIX/x86/hex0-seed /x86/hex0_x86.hex0 /x86/artifact/hex0
+    chmod${EXE_SUFFIX} 755 /x86/artifact/hex0
+    /x86/artifact/hex0 /builder-hex0-arch/builder-hex0-x86-stage1-bios.hex0 /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
+    catm${EXE_SUFFIX} curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
+    catm${EXE_SUFFIX} prev curr
+    dd${EXE_SUFFIX} if=prev bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+    catm${EXE_SUFFIX} next /builder-hex0-arch/builder-hex0-x86-stage2.hex0
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+    dd${EXE_SUFFIX} if=prev bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+
+# riscv64: stage2 only (stage1 is the kernel, provided externally)
+if match ${ARCH} riscv64
+then
+    catm${EXE_SUFFIX} prev /builder-hex0-arch/builder-hex0-riscv64-stage2.hex0
+    catm${EXE_SUFFIX} curr prev
+    dd${EXE_SUFFIX} if=curr bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+
+# amd64: no kernel, but need 2 blocks of header for bh0x
+# (block 0 is discarded, block 1 must have strlen < 512 to stop skipping)
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    dd${EXE_SUFFIX} if=/scripts/noop.kaem bs=512 of=prev
+    dd${EXE_SUFFIX} if=/scripts/noop.kaem bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+
+# aarch64: stage2 only (stage1 is the kernel, provided externally)
+if match ${ARCH} aarch64
+then
+    catm${EXE_SUFFIX} prev /builder-hex0-arch/builder-hex0-aarch64-stage2.hex0
+    catm${EXE_SUFFIX} curr prev
+    dd${EXE_SUFFIX} if=curr bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi

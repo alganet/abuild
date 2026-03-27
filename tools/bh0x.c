@@ -83,8 +83,18 @@ int main(int argc, char** argv) {
       exit(EXIT_SUCCESS);
     }
 
-    /* Handle non-"src " entries (init script commands) */
+    /* Handle non-"src " entries: skip to next newline */
     if (0 != strcmp("src ", instr)) {
+      while (1) {
+        bytes = read(input, single_char, 1);
+        if (0 == bytes) {
+          close(input);
+          exit(EXIT_SUCCESS);
+        }
+        if (0 == strcmp(single_char, "\n")) {
+          break;
+        }
+      }
       continue;
     }
 
@@ -142,7 +152,7 @@ int main(int argc, char** argv) {
       }
 
       bytes = read(input, file_contents, read_size);
-      write(output_fd, file_contents, strlen(file_contents));
+      write(output_fd, file_contents, bytes);
       file_size = file_size - bytes;
     }
 

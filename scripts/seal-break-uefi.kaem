@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# UEFI variant: overwrites /seal with a same-sized file ("broken", 6 bytes).
+# UEFI firmware only flushes data on close() which catm skips, but since the
+# replacement is the same byte count as the original ("intact"), no directory
+# metadata update is needed — the raw data write alone changes the content.
+/${STAGE0_HOST}/bin/catm${EXE_SUFFIX} /seal /scripts/broken-seal

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# This script runs after stage0-uefi completes.
+# The source tree is already on the FAT32 filesystem (we just booted from it).
+
+BINDIR="/${ARCH}/bin"
+M2LIBC="/M2libc"
+M2LIBC_PATH="/M2libc"
+PATH="${BINDIR}"
+
+# Build and run nowatchdog (UEFI default 5-min watchdog is too short)
+cd /tools
+${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file nowatchdog.c --output ${BINDIR}/nowatchdog${EXE_SUFFIX}
+${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file shutdown.c --output ${BINDIR}/shutdown${EXE_SUFFIX}
+cd /
+nowatchdog${EXE_SUFFIX}
+
+# Build posix-runner (Linux syscall emulator for running ELF binaries on UEFI)
+cd /posix-runner
+${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file posix-runner.c --output ${BINDIR}/posix-runner${EXE_SUFFIX}
+cd /
+
+# Run pre-build (may break the seal)
+${BINDIR}/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/pre-build.kaem
+
+# Stamp seal into /k0.img header for host-side detection
+catm${EXE_SUFFIX} /k0.img /seal
+
+# Compile GNU Mes (produces Linux ELF binary)
+catm${EXE_SUFFIX} /scripts/mes-run.kaem /scripts/env.${ARCH}.kaem /scripts/mes.kaem
+${BINDIR}/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/mes-run.kaem
+
+# Run mes via posix-runner to verify it works
+cd /tmp/mes-0.27.1
+posix-runner${EXE_SUFFIX} bin/mes --version
+
+echo Hello from inside the ${ARCH} image
+shutdown${EXE_SUFFIX}

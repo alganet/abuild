@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+alias putdir="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putdir.kaem"
+alias putfile="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putfile.kaem"
+
+# UEFI boot entry
+ARG=/EFI; putdir
+ARG=/EFI/BOOT; putdir
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    ARG=/EFI/BOOT/BOOTX64.EFI; putfile
+fi
+
+# UEFI bootstrap seeds
+ARG=/bootstrap-seeds; putdir
+ARG=/bootstrap-seeds/UEFI; putdir
+ARG=/bootstrap-seeds/UEFI/${ARCH}; putdir
+ARG=/bootstrap-seeds/UEFI/${ARCH}/hex0-seed.efi; putfile
+ARG=/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi; putfile
+
+# stage0-uefi entry script and answers
+ARG=/kaem.${ARCH}; putfile
+ARG=/${ARCH}.answers; putfile
+
+# stage0-uefi arch-specific toolchain (UEFI PE32 sources)
+ARG=/${ARCH}; putdir
+ARG=/${ARCH}/artifact; putdir
+ARG=/${ARCH}/bin; putdir
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    ARG=/amd64/hex0.hex0; putfile
+    ARG=/amd64/hex1.hex0; putfile
+    ARG=/amd64/hex2.hex1; putfile
+    ARG=/amd64/kaem-optional.hex0; putfile
+    ARG=/amd64/catm.hex2; putfile
+    ARG=/amd64/M0.hex2; putfile
+    ARG=/amd64/PE32-amd64.hex2; putfile
+    ARG=/amd64/cc_amd64.M1; putfile
+    ARG=/amd64/kaem.run; putfile
+    ARG=/amd64/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/amd64/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/amd64/mescc-tools-full-kaem.kaem; putfile
+    ARG=/amd64/bin/placeholder; putfile
+fi
+
+# posix-runner source
+ARG=/posix-runner; putdir
+ARG=/posix-runner/posix-runner.c; putfile
+
+# UEFI-specific M2libc arch files
+ARG=/M2libc/${ARCH}/uefi; putdir
+ARG=/M2libc/${ARCH}/uefi/bootstrap.c; putfile
+ARG=/M2libc/${ARCH}/uefi/libc-core.M1; putfile
+ARG=/M2libc/${ARCH}/uefi/libc-full.M1; putfile
+ARG=/M2libc/${ARCH}/uefi/PE32-${ARCH}.hex2; putfile

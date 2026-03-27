@@ -5,61 +5,74 @@ M2LIBC_PATH="/M2libc"
 PATH="/${STAGE0_HOST}/bin:/bin"
 TMPDIR="/tmp"
 
-alias create_file="replace --file /scripts/noop.kaem --match-on \# --replace-with"
-alias putdir="/${STAGE0_HOST}/bin/kaem --file /scripts/putdir.kaem"
-alias putfile="/${STAGE0_HOST}/bin/kaem --file /scripts/putfile.kaem"
+alias create_file="replace${EXE_SUFFIX} --file /scripts/noop.kaem --match-on \# --replace-with"
+alias putdir="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putdir.kaem"
+alias putfile="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putfile.kaem"
 
 cd /
-mkdir -p /tmp
-mkdir -p /bin
-mkdir -p /bootstrap-seeds
-mkdir -p /bootstrap-seeds/NATIVE
-mkdir -p /bootstrap-seeds/NATIVE/${ARCH}/
+mkdir${EXE_SUFFIX} -p /tmp
+mkdir${EXE_SUFFIX} -p /bin
+mkdir${EXE_SUFFIX} -p /bootstrap-seeds
+mkdir${EXE_SUFFIX} -p /bootstrap-seeds/NATIVE
+mkdir${EXE_SUFFIX} -p /bootstrap-seeds/NATIVE/${ARCH}/
 
-catm after.kaem /scripts/env.${ARCH}.kaem /scripts/k1.kaem
+catm${EXE_SUFFIX} after.kaem /scripts/env.${ARCH}.kaem /scripts/k0-boot.kaem
 
-kaem --file /scripts/tools.kaem
+kaem${EXE_SUFFIX} --file /scripts/tools.kaem
 
 cd /tmp
 
-# x86: hex0-seed -> hex0 -> stage1.img, then stage1 + stage2 disk assembly
-if match ${ARCH} x86
+# ============================================================
+# Init: architecture kernel bootstrap and bh0 header
+# ============================================================
+
+if match${EXE_SUFFIX} ${ARCH} x86
 then
     /bootstrap-seeds/POSIX/x86/hex0-seed /x86/hex0_x86.hex0 /x86/artifact/hex0
-    chmod 755 /x86/artifact/hex0
+    chmod${EXE_SUFFIX} 755 /x86/artifact/hex0
     /x86/artifact/hex0 /builder-hex0-arch/builder-hex0-x86-stage1-bios.hex0 /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
-    catm curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
-    catm prev curr
-    dd if=prev bs=512 of=next
-    catm curr prev next
-    catm prev curr
-    catm next /builder-hex0-arch/builder-hex0-x86-stage2.hex0
-    catm curr prev next
-    catm prev curr
-    dd if=prev bs=512 of=next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} curr /bootstrap-seeds/NATIVE/x86/builder-hex0-x86-stage1.img
+    catm${EXE_SUFFIX} prev curr
+    dd${EXE_SUFFIX} if=prev bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+    catm${EXE_SUFFIX} next /builder-hex0-arch/builder-hex0-x86-stage2.hex0
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+    dd${EXE_SUFFIX} if=prev bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
 
-# riscv64: stage2 only (stage1 is the kernel, provided externally)
-if match ${ARCH} riscv64
+if match${EXE_SUFFIX} ${ARCH} riscv64
 then
-    catm prev /builder-hex0-arch/builder-hex0-riscv64-stage2.hex0
-    catm curr prev
-    dd if=curr bs=512 of=next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} prev /builder-hex0-arch/builder-hex0-riscv64-stage2.hex0
+    catm${EXE_SUFFIX} curr prev
+    dd${EXE_SUFFIX} if=curr bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
 
-# aarch64: stage2 only (stage1 is the kernel, provided externally)
-if match ${ARCH} aarch64
+if match${EXE_SUFFIX} ${ARCH} aarch64
 then
-    catm prev /builder-hex0-arch/builder-hex0-aarch64-stage2.hex0
-    catm curr prev
-    dd if=curr bs=512 of=next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} prev /builder-hex0-arch/builder-hex0-aarch64-stage2.hex0
+    catm${EXE_SUFFIX} curr prev
+    dd${EXE_SUFFIX} if=curr bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
+
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    dd${EXE_SUFFIX} if=/scripts/noop.kaem bs=512 of=prev
+    dd${EXE_SUFFIX} if=/scripts/noop.kaem bs=512 of=next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+
+# ============================================================
+# Shared entries: scripts, sources, tools
+# ============================================================
 
 ARG=/; putdir
 ARG=/dev; putdir
@@ -70,29 +83,136 @@ ARG=/after.kaem; putfile
 ARG=/scripts; putdir
 ARG=/scripts/pre-build.kaem; putfile
 ARG=/scripts/seal-break.kaem; putfile
+ARG=/scripts/seal-break-uefi.kaem; putfile
+ARG=/scripts/broken-seal; putfile
 ARG=/scripts/k0.kaem; putfile
 ARG=/scripts/k1.kaem; putfile
 ARG=/scripts/putdir.kaem; putfile
 ARG=/scripts/putfile.kaem; putfile
 ARG=/scripts/noop.kaem; putfile
 ARG=/scripts/tools.kaem; putfile
+ARG=/scripts/mes.kaem; putfile
 ARG=/scripts/env.${ARCH}.kaem; putfile
+ARG=/scripts/k0-boot.kaem; putfile
+
+# ============================================================
+# Architecture-specific bootstrap seeds and toolchain sources
+# ============================================================
 
 ARG=/bootstrap-seeds; putdir
 ARG=/bootstrap-seeds/POSIX; putdir
-if match ${ARCH} aarch64
-then
-    ARG=/bootstrap-seeds/POSIX/AArch64; putdir
-fi
-if match ${ARCH} x86
-then
-    ARG=/bootstrap-seeds/POSIX/${ARCH}; putdir
-fi
-if match ${ARCH} riscv64
-then
-    ARG=/bootstrap-seeds/POSIX/${ARCH}; putdir
-fi
+ARG=/bootstrap-seeds/POSIX/${STAGE0_HOST}; putdir
 ARG=/kaem.${ARCH}; putfile
+
+if match${EXE_SUFFIX} ${ARCH} x86
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
+    ARG=/${ARCH}/kaem-minimal.hex0; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/libc-core.M1; putfile
+    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
+    ARG=/x86/ELF-i386.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-x86-stage2.hex0; putfile
+    ARG=/builder-hex0-arch/builder-hex0-x86-stage1-bios.hex0; putfile
+fi
+
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
+    ARG=/${ARCH}/kaem-minimal.hex0; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/libc-core.M1; putfile
+    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
+    ARG=/riscv64/ELF-riscv64.hex2; putfile
+    ARG=/riscv64/ELF-riscv64-debug.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-riscv64-stage2.hex0; putfile
+fi
+
+if match${EXE_SUFFIX} ${ARCH} aarch64
+then
+    ARG=/AArch64; putdir
+    ARG=/aarch64.answers; putfile
+    ARG=/AArch64/artifact; putdir
+    ARG=/AArch64/bin; putdir
+    ARG=/AArch64/catm_AArch64.hex1; putfile
+    ARG=/AArch64/cc_aarch64.M1; putfile
+    ARG=/AArch64/hex0_AArch64.hex0; putfile
+    ARG=/AArch64/hex1_AArch64.hex0; putfile
+    ARG=/AArch64/hex2_AArch64.hex1; putfile
+    ARG=/AArch64/kaem-minimal.hex0; putfile
+    ARG=/AArch64/kaem.run; putfile
+    ARG=/AArch64/libc-core.M1; putfile
+    ARG=/AArch64/M0_AArch64.hex2; putfile
+    ARG=/AArch64/mescc-tools-full-kaem.kaem; putfile
+    ARG=/AArch64/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/AArch64/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/AArch64/aarch64_defs.M1; putfile
+    ARG=/AArch64/ELF-aarch64.hex2; putfile
+    ARG=/AArch64/ELF-aarch64-debug.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-aarch64-stage2.hex0; putfile
+fi
+
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/bin/placeholder; putfile
+    ARG=/${ARCH}/hex0.hex0; putfile
+    ARG=/${ARCH}/hex1.hex0; putfile
+    ARG=/${ARCH}/hex2.hex1; putfile
+    ARG=/${ARCH}/kaem-optional.hex0; putfile
+    ARG=/${ARCH}/catm.hex2; putfile
+    ARG=/${ARCH}/M0.hex2; putfile
+    ARG=/${ARCH}/PE32-${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    ARG=/EFI; putdir
+    ARG=/EFI/BOOT; putdir
+    ARG=/EFI/BOOT/BOOTX64.EFI; putfile
+    ARG=/bootstrap-seeds/UEFI; putdir
+    ARG=/bootstrap-seeds/UEFI/${ARCH}; putdir
+    ARG=/bootstrap-seeds/UEFI/${ARCH}/hex0-seed.efi; putfile
+    ARG=/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi; putfile
+    ARG=/posix-runner; putdir
+    ARG=/posix-runner/posix-runner.c; putfile
+fi
+
+# ============================================================
+# Shared sources
+# ============================================================
+
 ARG=/M2-Mesoplanet; putdir
 ARG=/M2-Mesoplanet/cc_core.c; putfile
 ARG=/M2-Mesoplanet/cc_env.c; putfile
@@ -220,160 +340,81 @@ ARG=/mescc-tools/Kaem/variable.c; putfile
 ARG=/mescc-tools/M1-macro.c; putfile
 ARG=/mescc-tools/stringify.c; putfile
 
-# Architecture-specific toolchain files
-# (aarch64 needs special handling: stage0-posix uses AArch64 for dir/files)
-if match ${ARCH} x86
-then
-    ARG=/${ARCH}; putdir
-    ARG=/${ARCH}.answers; putfile
-    ARG=/${ARCH}/artifact; putdir
-    ARG=/${ARCH}/bin; putdir
-    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
-    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
-    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
-    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
-    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
-    ARG=/${ARCH}/kaem-minimal.hex0; putfile
-    ARG=/${ARCH}/kaem.run; putfile
-    ARG=/${ARCH}/libc-core.M1; putfile
-    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
-    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
-    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
-    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
-    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
-fi
-if match ${ARCH} riscv64
-then
-    ARG=/${ARCH}; putdir
-    ARG=/${ARCH}.answers; putfile
-    ARG=/${ARCH}/artifact; putdir
-    ARG=/${ARCH}/bin; putdir
-    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
-    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
-    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
-    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
-    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
-    ARG=/${ARCH}/kaem-minimal.hex0; putfile
-    ARG=/${ARCH}/kaem.run; putfile
-    ARG=/${ARCH}/libc-core.M1; putfile
-    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
-    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
-    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
-    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
-    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
-fi
-if match ${ARCH} aarch64
-then
-    ARG=/AArch64; putdir
-    ARG=/aarch64.answers; putfile
-    ARG=/AArch64/artifact; putdir
-    ARG=/AArch64/bin; putdir
-    ARG=/AArch64/catm_AArch64.hex1; putfile
-    ARG=/AArch64/cc_aarch64.M1; putfile
-    ARG=/AArch64/hex0_AArch64.hex0; putfile
-    ARG=/AArch64/hex1_AArch64.hex0; putfile
-    ARG=/AArch64/hex2_AArch64.hex1; putfile
-    ARG=/AArch64/kaem-minimal.hex0; putfile
-    ARG=/AArch64/kaem.run; putfile
-    ARG=/AArch64/libc-core.M1; putfile
-    ARG=/AArch64/M0_AArch64.hex2; putfile
-    ARG=/AArch64/mescc-tools-full-kaem.kaem; putfile
-    ARG=/AArch64/mescc-tools-mini-kaem.kaem; putfile
-    ARG=/AArch64/mescc-tools-seed-kaem.kaem; putfile
-    ARG=/AArch64/aarch64_defs.M1; putfile
-fi
-
 ARG=/tools; putdir
 ARG=/tools/wc.c; putfile
 ARG=/tools/dd.c; putfile
 ARG=/tools/bh0x.c; putfile
+ARG=/tools/mkfat.c; putfile
+ARG=/tools/fatput.c; putfile
+ARG=/tools/fatget.c; putfile
+ARG=/tools/shutdown.c; putfile
+ARG=/tools/nowatchdog.c; putfile
+ARG=/tools/bh0header.c; putfile
 
-# TEMPORARILY REMOVED: distfiles (~4.6MB) for debugging file data usage
-#ARG=/distfiles; putdir
-#ARG=/distfiles/mes-0.27.1.tar.gz; putfile
-#ARG=/distfiles/nyacc-1.00.2-lb1.tar.gz; putfile
-#ARG=/distfiles/tcc-0.9.26-1147-gee75a10c.tar.gz; putfile
-#ARG=/distfiles/tcc-0.9.27.tar.bz2; putfile
-#ARG=/distfiles/fiwix-1.5.0-lb1.tar.gz; putfile
-#ARG=/distfiles/lwext4-1.0.0-lb1.tar.gz; putfile
+ARG=/distfiles; putdir
+ARG=/distfiles/mes-0.27.1.tar.gz; putfile
+ARG=/scripts/mes-dirs.kaem; putfile
 
-# Architecture-specific M2libc files (putdirs already emitted above)
+# Architecture-specific M2libc files
+ARG=/M2libc/${ARCH}/${ARCH}_defs.M1; putfile
+ARG=/M2libc/${ARCH}/libc-core.M1; putfile
+ARG=/M2libc/${ARCH}/libc-full.M1; putfile
 ARG=/M2libc/${ARCH}/linux/bootstrap.c; putfile
 ARG=/M2libc/${ARCH}/ELF-${ARCH}.hex2; putfile
 ARG=/M2libc/${ARCH}/ELF-${ARCH}-debug.hex2; putfile
-ARG=/M2libc/${ARCH}/libc-core.M1; putfile
-ARG=/M2libc/${ARCH}/libc-full.M1; putfile
-ARG=/M2libc/${ARCH}/${ARCH}_defs.M1; putfile
-
-# Architecture-specific toolchain ELF and builder files
-if match ${ARCH} x86
+if match${EXE_SUFFIX} ${ARCH} amd64
 then
-    ARG=/x86/ELF-i386.hex2; putfile
-    ARG=/builder-hex0-arch; putdir
-    ARG=/builder-hex0-arch/builder-hex0-x86-stage2.hex0; putfile
-    ARG=/builder-hex0-arch/builder-hex0-x86-stage1-bios.hex0; putfile
-fi
-if match ${ARCH} riscv64
-then
-    ARG=/riscv64/ELF-riscv64.hex2; putfile
-    ARG=/riscv64/ELF-riscv64-debug.hex2; putfile
-    ARG=/builder-hex0-arch; putdir
-    ARG=/builder-hex0-arch/builder-hex0-riscv64-stage2.hex0; putfile
-fi
-if match ${ARCH} aarch64
-then
-    ARG=/AArch64/ELF-aarch64.hex2; putfile
-    ARG=/AArch64/ELF-aarch64-debug.hex2; putfile
-    ARG=/builder-hex0-arch; putdir
-    ARG=/builder-hex0-arch/builder-hex0-aarch64-stage2.hex0; putfile
+    ARG=/M2libc/${ARCH}/uefi; putdir
+    ARG=/M2libc/${ARCH}/uefi/bootstrap.c; putfile
+    ARG=/M2libc/${ARCH}/uefi/libc-core.M1; putfile
+    ARG=/M2libc/${ARCH}/uefi/libc-full.M1; putfile
+    ARG=/M2libc/${ARCH}/uefi/PE32-${ARCH}.hex2; putfile
 fi
 
-if match ${ARCH} aarch64
+# ============================================================
+# Final: init commands, padding, write to /dev/hda
+# ============================================================
+
+if match${EXE_SUFFIX} ${ARCH} aarch64
 then
     create_file "hex0 /AArch64/hex0_AArch64.hex0 /bootstrap-seeds/POSIX/AArch64/hex0-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "hex0 /AArch64/kaem-minimal.hex0 /bootstrap-seeds/POSIX/AArch64/kaem-optional-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "/bootstrap-seeds/POSIX/AArch64/kaem-optional-seed /kaem.aarch64" --output next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
-if match ${ARCH} x86
+if match${EXE_SUFFIX} ${ARCH} x86
 then
     create_file "hex0 /${ARCH}/hex0_${ARCH}.hex0 /bootstrap-seeds/POSIX/${ARCH}/hex0-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "hex0 /${ARCH}/kaem-minimal.hex0 /bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "/bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed /kaem.${ARCH}" --output next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
-if match ${ARCH} riscv64
+if match${EXE_SUFFIX} ${ARCH} riscv64
 then
     create_file "hex0 /${ARCH}/hex0_${ARCH}.hex0 /bootstrap-seeds/POSIX/${ARCH}/hex0-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "hex0 /${ARCH}/kaem-minimal.hex0 /bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed" --output next
-    catm curr prev next
-    catm prev curr
-
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
     create_file "/bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed /kaem.${ARCH}" --output next
-    catm curr prev next
-    catm prev curr
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
 fi
 
-dd if=prev bs=8388608 of=next
-catm curr prev next
-catm prev curr
+dd${EXE_SUFFIX} if=prev bs=8388608 of=next
+catm${EXE_SUFFIX} curr prev next
+catm${EXE_SUFFIX} prev curr
 
-mkdir -p /dev
-catm /dev/hda curr
+mkdir${EXE_SUFFIX} -p /dev
+catm${EXE_SUFFIX} /dev/hda curr
