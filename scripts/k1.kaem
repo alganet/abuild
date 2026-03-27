@@ -3,8 +3,11 @@
 
 cd /
 
-/${STAGE0_HOST}/bin/kaem --verbose --strict --file /scripts/pre-build.kaem
-/${STAGE0_HOST}/bin/catm /scripts/k0-run.kaem /scripts/env.${ARCH}.kaem /scripts/k0.kaem
-/${STAGE0_HOST}/bin/kaem --verbose --strict --file /scripts/k0-run.kaem
+/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/pre-build.kaem
+/${STAGE0_HOST}/bin/catm${EXE_SUFFIX} /scripts/k0-run.kaem /scripts/env.${ARCH}.kaem /scripts/k0.kaem
+/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/k0-run.kaem
+
+/${STAGE0_HOST}/bin/catm${EXE_SUFFIX} /scripts/mes-run.kaem /scripts/env.${ARCH}.kaem /scripts/mes.kaem
+/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/mes-run.kaem
 
 echo Hello from inside the ${ARCH} image

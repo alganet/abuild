@@ -1,4 +1,4 @@
 # SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-/${STAGE0_HOST}/bin/catm${EXE_SUFFIX} /seal /scripts/noop.kaem
+bh0header${EXE_SUFFIX} prev ${ARG} ${ARG}

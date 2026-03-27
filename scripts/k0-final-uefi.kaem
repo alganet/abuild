@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Copy the rebuilt disk image to /dev/hda so the host-side wrap can extract it.
+# On UEFI boot, diskwrite.efi reads /tmp/disk.img directly instead.
+mkdir${EXE_SUFFIX} -p /dev
+catm${EXE_SUFFIX} /dev/hda /tmp/disk.img

@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+alias create_file="replace${EXE_SUFFIX} --file /scripts/noop.kaem --match-on \# --replace-with"
+alias putdir="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putdir.kaem"
+alias putfile="/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --file /scripts/putfile.kaem"
+
+ARG=/bootstrap-seeds; putdir
+ARG=/bootstrap-seeds/POSIX; putdir
+if match${EXE_SUFFIX} ${ARCH} aarch64
+then
+    ARG=/bootstrap-seeds/POSIX/AArch64; putdir
+fi
+if match${EXE_SUFFIX} ${ARCH} x86
+then
+    ARG=/bootstrap-seeds/POSIX/${ARCH}; putdir
+fi
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    ARG=/bootstrap-seeds/POSIX/${ARCH}; putdir
+fi
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    ARG=/bootstrap-seeds/POSIX/${ARCH}; putdir
+fi
+ARG=/kaem.${ARCH}; putfile
+
+# Architecture-specific toolchain files
+# (aarch64 needs special handling: stage0-posix uses AArch64 for dir/files)
+if match ${ARCH} x86
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
+    ARG=/${ARCH}/kaem-minimal.hex0; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/libc-core.M1; putfile
+    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
+fi
+if match ${ARCH} riscv64
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/catm_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/hex0_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex1_${ARCH}.hex0; putfile
+    ARG=/${ARCH}/hex2_${ARCH}.hex1; putfile
+    ARG=/${ARCH}/kaem-minimal.hex0; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/libc-core.M1; putfile
+    ARG=/${ARCH}/M0_${ARCH}.hex2; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/${ARCH}_defs.M1; putfile
+fi
+if match ${ARCH} aarch64
+then
+    ARG=/AArch64; putdir
+    ARG=/aarch64.answers; putfile
+    ARG=/AArch64/artifact; putdir
+    ARG=/AArch64/bin; putdir
+    ARG=/AArch64/catm_AArch64.hex1; putfile
+    ARG=/AArch64/cc_aarch64.M1; putfile
+    ARG=/AArch64/hex0_AArch64.hex0; putfile
+    ARG=/AArch64/hex1_AArch64.hex0; putfile
+    ARG=/AArch64/hex2_AArch64.hex1; putfile
+    ARG=/AArch64/kaem-minimal.hex0; putfile
+    ARG=/AArch64/kaem.run; putfile
+    ARG=/AArch64/libc-core.M1; putfile
+    ARG=/AArch64/M0_AArch64.hex2; putfile
+    ARG=/AArch64/mescc-tools-full-kaem.kaem; putfile
+    ARG=/AArch64/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/AArch64/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/AArch64/aarch64_defs.M1; putfile
+fi
+
+# amd64/UEFI: stage0-uefi sources (different naming from stage0-posix)
+if match${EXE_SUFFIX} ${ARCH} amd64
+then
+    ARG=/${ARCH}; putdir
+    ARG=/${ARCH}.answers; putfile
+    ARG=/${ARCH}/artifact; putdir
+    ARG=/${ARCH}/bin; putdir
+    ARG=/${ARCH}/bin/placeholder; putfile
+    ARG=/${ARCH}/hex0.hex0; putfile
+    ARG=/${ARCH}/hex1.hex0; putfile
+    ARG=/${ARCH}/hex2.hex1; putfile
+    ARG=/${ARCH}/kaem-optional.hex0; putfile
+    ARG=/${ARCH}/catm.hex2; putfile
+    ARG=/${ARCH}/M0.hex2; putfile
+    ARG=/${ARCH}/PE32-${ARCH}.hex2; putfile
+    ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+    ARG=/${ARCH}/kaem.run; putfile
+    ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+    # UEFI boot entry
+    ARG=/EFI; putdir
+    ARG=/EFI/BOOT; putdir
+    ARG=/EFI/BOOT/BOOTX64.EFI; putfile
+    # UEFI bootstrap seeds
+    ARG=/bootstrap-seeds/UEFI; putdir
+    ARG=/bootstrap-seeds/UEFI/${ARCH}; putdir
+    ARG=/bootstrap-seeds/UEFI/${ARCH}/hex0-seed.efi; putfile
+    ARG=/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi; putfile
+    # posix-runner source
+    ARG=/posix-runner; putdir
+    ARG=/posix-runner/posix-runner.c; putfile
+fi
+
+# Architecture-specific toolchain ELF and builder files
+if match ${ARCH} x86
+then
+    ARG=/x86/ELF-i386.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-x86-stage2.hex0; putfile
+    ARG=/builder-hex0-arch/builder-hex0-x86-stage1-bios.hex0; putfile
+fi
+if match ${ARCH} riscv64
+then
+    ARG=/riscv64/ELF-riscv64.hex2; putfile
+    ARG=/riscv64/ELF-riscv64-debug.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-riscv64-stage2.hex0; putfile
+fi
+if match ${ARCH} aarch64
+then
+    ARG=/AArch64/ELF-aarch64.hex2; putfile
+    ARG=/AArch64/ELF-aarch64-debug.hex2; putfile
+    ARG=/builder-hex0-arch; putdir
+    ARG=/builder-hex0-arch/builder-hex0-aarch64-stage2.hex0; putfile
+fi
+

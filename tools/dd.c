@@ -106,15 +106,22 @@ int main(int argc, char** argv) {
       exit(EXIT_FAILURE);
     }
 
-    while ((file_offset % block_size) != 0) {
-      char zero = '\0';
-      if (write(output_fd, &zero, 1) != 1) {
-        fputs("Error: Failed to write padding byte to output file\n", stderr);
-        close(input_fd);
-        close(output_fd);
-        exit(EXIT_FAILURE);
+    {
+      int pad_total = block_size - (file_offset % block_size);
+      if(pad_total == block_size) pad_total = 0;
+      char* zbuf = calloc(4096, 1);
+      while(pad_total > 0) {
+        int chunk = pad_total;
+        if(chunk > 4096) chunk = 4096;
+        if(write(output_fd, zbuf, chunk) != chunk) {
+          fputs("Error: Failed to write padding to output file\n", stderr);
+          close(input_fd);
+          close(output_fd);
+          exit(EXIT_FAILURE);
+        }
+        pad_total = pad_total - chunk;
       }
-      file_offset += 1;
+      free(zbuf);
     }
   }
 

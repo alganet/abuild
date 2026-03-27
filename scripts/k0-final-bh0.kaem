@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+alias create_file="replace${EXE_SUFFIX} --file /scripts/noop.kaem --match-on \# --replace-with"
+
+# Init script commands (must come after all putfile/putdir entries)
+if match ${ARCH} aarch64
+then
+    create_file "hex0 /AArch64/hex0_AArch64.hex0 /bootstrap-seeds/POSIX/AArch64/hex0-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "hex0 /AArch64/kaem-minimal.hex0 /bootstrap-seeds/POSIX/AArch64/kaem-optional-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "/bootstrap-seeds/POSIX/AArch64/kaem-optional-seed /kaem.aarch64" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+if match ${ARCH} x86
+then
+    create_file "hex0 /${ARCH}/hex0_${ARCH}.hex0 /bootstrap-seeds/POSIX/${ARCH}/hex0-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "hex0 /${ARCH}/kaem-minimal.hex0 /bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "/bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed /kaem.${ARCH}" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+if match ${ARCH} riscv64
+then
+    create_file "hex0 /${ARCH}/hex0_${ARCH}.hex0 /bootstrap-seeds/POSIX/${ARCH}/hex0-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "hex0 /${ARCH}/kaem-minimal.hex0 /bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+
+    create_file "/bootstrap-seeds/POSIX/${ARCH}/kaem-optional-seed /kaem.${ARCH}" --output next
+    catm${EXE_SUFFIX} curr prev next
+    catm${EXE_SUFFIX} prev curr
+fi
+
+dd${EXE_SUFFIX} if=prev bs=8388608 of=next
+catm${EXE_SUFFIX} curr prev next
+catm${EXE_SUFFIX} prev curr
+
+mkdir${EXE_SUFFIX} -p /dev
+catm${EXE_SUFFIX} /dev/hda curr

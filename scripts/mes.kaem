@@ -1,0 +1,177 @@
+# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Build GNU Mes from source using M2-Planet toolchain
+# Adapted from mes-0.27.1/kaem.run
+
+PATH="/${STAGE0_HOST}/bin:/bin"
+
+mkdir${EXE_SUFFIX} -p /tmp
+cd /tmp
+
+ungz${EXE_SUFFIX} --file /distfiles/mes-0.27.1.tar.gz --output /tmp/mes-0.27.1.tar
+
+# On UEFI, pre-create all directories before untar.  OVMF's FAT32 driver
+# crashes (GP#) when EFI_FILE_PROTOCOL.Open is called with CREATE mode
+# for a path whose parent directory does not yet exist.
+if match${EXE_SUFFIX} "${OPERATING_SYSTEM}" "UEFI"
+then
+	/${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/mes-dirs.kaem
+fi
+
+if match${EXE_SUFFIX} "${OPERATING_SYSTEM}" "Linux"
+then
+	mkdir${EXE_SUFFIX} -p /tmp/mes-0.27.1
+fi
+
+untar${EXE_SUFFIX} --non-strict --file /tmp/mes-0.27.1.tar
+
+cd /tmp/mes-0.27.1
+
+# Replace symlinks with copies (kernel/FAT32 has no symlink support)
+cp${EXE_SUFFIX} lib/tests/dirent/readdir.dir/file lib/tests/dirent/readdir.dir/link
+cp${EXE_SUFFIX} mes/module/srfi/srfi-9-struct.mes mes/module/srfi/srfi-9.mes
+cp${EXE_SUFFIX} mes/module/srfi/srfi-9/gnu-struct.mes mes/module/srfi/srfi-9/gnu.mes
+
+mkdir${EXE_SUFFIX} -p m2
+mkdir${EXE_SUFFIX} -p bin
+
+# Generate empty config.h (normally done by configure)
+# SYSTEM_LIBC is left undefined, which is correct for bootstrap
+replace${EXE_SUFFIX} --file /scripts/noop.kaem --match-on "#" --replace-with "//config" --output include/mes/config.h
+
+M2-Planet${EXE_SUFFIX} \
+    --debug \
+    --architecture ${STAGE0_ARCH} \
+    -D __${MES_CC_CPU}__=1 \
+    -D __linux__=1 \
+    -D MES_VERSION="0.27.1" \
+    -f include/mes/config.h \
+    -f include/mes/lib-mini.h \
+    -f include/mes/lib.h \
+    -f lib/linux/${MES_CPU}-mes-m2/crt1.c \
+    -f lib/mes/__init_io.c \
+    -f lib/linux/${MES_CPU}-mes-m2/_exit.c \
+    -f lib/linux/${MES_CPU}-mes-m2/_write.c \
+    -f lib/mes/globals.c \
+    -f lib/m2/cast.c \
+    -f lib/stdlib/exit.c \
+    -f lib/mes/write.c \
+    -f include/linux/${MES_CPU}/syscall.h \
+    -f lib/linux/${MES_CPU}-mes-m2/syscall.c \
+    -f lib/stub/__raise.c \
+    -f lib/linux/brk.c \
+    -f lib/linux/malloc.c \
+    -f lib/string/memset.c \
+    -f lib/linux/read.c \
+    -f lib/mes/fdgetc.c \
+    -f lib/stdio/getchar.c \
+    -f lib/stdio/putchar.c \
+    -f lib/stub/__buffered_read.c \
+    -f include/errno.h \
+    -f include/fcntl.h \
+    -f lib/linux/_open3.c \
+    -f lib/linux/open.c \
+    -f lib/mes/mes_open.c \
+    -f lib/string/strlen.c \
+    -f lib/mes/eputs.c \
+    -f lib/mes/fdputc.c \
+    -f lib/mes/eputc.c \
+    -f include/time.h \
+    -f include/sys/time.h \
+    -f include/m2/types.h \
+    -f include/sys/types.h \
+    -f include/sys/utsname.h \
+    -f include/mes/mes.h \
+    -f include/mes/builtins.h \
+    -f include/mes/constants.h \
+    -f include/mes/symbols.h \
+    -f lib/mes/__assert_fail.c \
+    -f lib/mes/assert_msg.c \
+    -f lib/mes/fdputc.c \
+    -f lib/string/strncmp.c \
+    -f lib/posix/getenv.c \
+    -f lib/mes/fdputs.c \
+    -f lib/mes/ntoab.c \
+    -f lib/ctype/isdigit.c \
+    -f lib/ctype/isxdigit.c \
+    -f lib/ctype/isspace.c \
+    -f lib/ctype/isnumber.c \
+    -f lib/mes/abtol.c \
+    -f lib/stdlib/atoi.c \
+    -f lib/string/memcpy.c \
+    -f lib/stdlib/free.c \
+    -f lib/stdlib/realloc.c \
+    -f lib/string/strcpy.c \
+    -f lib/mes/itoa.c \
+    -f lib/mes/ltoa.c \
+    -f lib/mes/fdungetc.c \
+    -f lib/posix/setenv.c \
+    -f lib/linux/access.c \
+    -f include/linux/m2/kernel-stat.h \
+    -f include/sys/stat.h \
+    -f lib/linux/chmod.c \
+    -f lib/linux/ioctl3.c \
+    -f include/sys/ioctl.h \
+    -f lib/m2/isatty.c \
+    -f include/signal.h \
+    -f lib/linux/fork.c \
+    -f lib/m2/execve.c \
+    -f lib/m2/execv.c \
+    -f include/sys/resource.h \
+    -f lib/linux/wait4.c \
+    -f lib/linux/waitpid.c \
+    -f lib/linux/gettimeofday.c \
+    -f lib/linux/clock_gettime.c \
+    -f lib/m2/time.c \
+    -f lib/linux/_getcwd.c \
+    -f include/limits.h \
+    -f lib/m2/getcwd.c \
+    -f lib/linux/dup.c \
+    -f lib/linux/dup2.c \
+    -f lib/string/strcmp.c \
+    -f lib/string/memcmp.c \
+    -f lib/linux/uname.c \
+    -f lib/linux/unlink.c \
+    -f src/builtins.c \
+    -f src/core.c \
+    -f src/display.c \
+    -f src/eval-apply.c \
+    -f src/gc.c \
+    -f src/hash.c \
+    -f src/lib.c \
+    -f src/m2.c \
+    -f src/math.c \
+    -f src/mes.c \
+    -f src/module.c \
+    -f src/posix.c \
+    -f src/reader.c \
+    -f src/stack.c \
+    -f src/string.c \
+    -f src/struct.c \
+    -f src/symbol.c \
+    -f src/variable.c \
+    -f src/vector.c \
+    -o m2/mes.M1
+
+blood-elf${EXE_SUFFIX} ${MES_BLOOD_ELF_FLAG} --little-endian -f m2/mes.M1 -o m2/mes.blood-elf-M1
+
+M1${EXE_SUFFIX} \
+    --architecture ${STAGE0_ARCH} \
+    --little-endian \
+    -f lib/m2/${MES_CPU}/${MES_CPU}_defs.M1 \
+    -f lib/${MES_CPU}-mes/${MES_CPU}.M1 \
+    -f lib/linux/${MES_CPU}-mes-m2/crt1.M1 \
+    -f m2/mes.M1 \
+    -f m2/mes.blood-elf-M1 \
+    -o m2/mes.hex2
+
+hex2${EXE_SUFFIX} \
+    --architecture ${STAGE0_ARCH} \
+    --little-endian \
+    --base-address ${MES_BASE_ADDRESS} \
+    -f lib/m2/${MES_CPU}/ELF-${MES_CPU}.hex2 \
+    -f m2/mes.hex2 \
+    -o bin/mes
+
+echo mes built successfully

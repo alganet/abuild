@@ -1,0 +1,6 @@
+PATH="/${STAGE0_HOST}/bin:/bin"
+mkdir${EXE_SUFFIX} -p /tmp
+cd /tmp
+ungz${EXE_SUFFIX} --file /distfiles/test.tar.gz --output /tmp/test.tar
+untar${EXE_SUFFIX} --non-strict --file /tmp/test.tar
+echo untar test succeeded
