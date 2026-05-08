@@ -55,6 +55,23 @@ cd "$SH_ROOT"
 
 . "$SH_ROOT/distfiles.sh"
 
+# apply_overlay <name> <dest1> [<dest2> ...]
+# Copies overlay-<name>/. into each existing destination. Sibling at
+# ../<name>/ wins over distfiles/overlay-<name>/. No-op if neither source
+# exists (e.g., overlay branch is "" and no sibling).
+apply_overlay () {
+	_name="$1"; shift
+	if   test -d "${SH_ROOT}/../${_name}"
+	then _src="${SH_ROOT}/../${_name}"
+	elif test -d "${SH_ROOT}/distfiles/overlay-${_name}"
+	then _src="${SH_ROOT}/distfiles/overlay-${_name}"
+	else return 0
+	fi
+	for _dst
+	do test -d "${_dst}" && $CP -Rf "${_src}/." "${_dst}/"
+	done
+}
+
 run_make_host () {
 	$MKDIR -p out/host-${HOST_ARCH}/builder-hex0-arch
 
@@ -71,58 +88,25 @@ run_make_host () {
 	$TAR --extract --strip-components=1 --directory out/host-${HOST_ARCH}/builder-hex0-arch --file=distfiles/builder-hex0-arch-main.tar
 	$RM -f distfiles/builder-hex0-arch-main.tar
 	
-	# Copy stage0-uefi (cloned with its own submodules at pinned versions)
-	if ! test -d out/host-${HOST_ARCH}/stage0-uefi
-	then
-		$CP -Rf distfiles/stage0-uefi-1.9.1 out/host-${HOST_ARCH}/stage0-uefi
-	fi
+	# Copy stage0-uefi (distfiles.sh has already resolved alganet fork /
+	# sibling / upstream stikonas into distfiles/stage0-uefi-1.9.1/).
+	$MKDIR -p out/host-${HOST_ARCH}/stage0-uefi
+	$CP -Rf distfiles/stage0-uefi-1.9.1/. out/host-${HOST_ARCH}/stage0-uefi/
 
-	# Overlay local stage0-uefi development files (e.g. riscv64 UEFI port)
-	# Merges into the distfile copy so make_k0_img sees a complete tree
-	_local_uefi="${SH_ROOT}/../stage0-uefi"
-	if test -d "${_local_uefi}/${ARCH}" && test -d "${_local_uefi}/bootstrap-seeds/UEFI/${ARCH}"
-	then
-		_dst="out/host-${HOST_ARCH}/stage0-uefi"
-		$CP -Rf "${_local_uefi}/${ARCH}/." "${_dst}/${ARCH}/"
-		$MKDIR -p "${_dst}/bootstrap-seeds/UEFI/${ARCH}"
-		$CP -Rf "${_local_uefi}/bootstrap-seeds/UEFI/${ARCH}/." "${_dst}/bootstrap-seeds/UEFI/${ARCH}/"
-		test -f "${_local_uefi}/kaem.${ARCH}" && $CP -f "${_local_uefi}/kaem.${ARCH}" "${_dst}/kaem.${ARCH}"
-		test -f "${_local_uefi}/${ARCH}.answers" && $CP -f "${_local_uefi}/${ARCH}.answers" "${_dst}/${ARCH}.answers"
-		$CP -Rf "${_local_uefi}/M2libc/${ARCH}/." "${_dst}/M2libc/${ARCH}/"
-		test -d "${_local_uefi}/M2libc/uefi" && $CP -Rf "${_local_uefi}/M2libc/uefi/." "${_dst}/M2libc/uefi/"
-		test -d "${_local_uefi}/posix-runner" && $CP -Rf "${_local_uefi}/posix-runner/." "${_dst}/posix-runner/"
-	fi
-
-	# Overlay local builder-hex0-arch tree if present. Mirrors the stage0-uefi
-	# overlay above. Used when iterating on stage2 (e.g. fixing aarch64 fork
-	# emulation) without round-tripping through the upstream tarball.
-	_local_bha="${SH_ROOT}/../builder-hex0-arch"
-	if test -d "${_local_bha}"
-	then
-		$CP -Rf "${_local_bha}/." "out/host-${HOST_ARCH}/builder-hex0-arch/"
-	fi
-
-	# Overlay local mes development tree by re-tarring it into distfiles.
-	# Auto-detects /home/devel/Projects/mes; absent the clone, the GNU FTP
-	# tarball wins. Mirrors the stage0-uefi overlay above. Determinism flags
-	# (--sort, --owner, --group, --mtime, gzip --no-name) keep the answers
-	# seal stable across rebuilds.
-	_local_mes="${SH_ROOT}/../mes"
-	if test -d "${_local_mes}"
-	then
-		_stage="${SH_ROOT}/out/.mes-overlay-stage"
-		$RM -rf "${_stage}"
-		$MKDIR -p "${_stage}/mes-0.27.1"
-		$CP -Rf "${_local_mes}/." "${_stage}/mes-0.27.1/"
-		(cd "${_stage}" && $TAR --create \
-			--sort=name --owner=0 --group=0 \
-			--mtime='2024-01-01 00:00:00 UTC' --format=ustar \
-			--exclude='.git' --exclude='.git/*' \
-			--file=mes-0.27.1.tar mes-0.27.1)
-		$GZIP --force --no-name "${_stage}/mes-0.27.1.tar"
-		$CP -f "${_stage}/mes-0.27.1.tar.gz" "${SH_ROOT}/distfiles/mes-0.27.1.tar.gz"
-		$RM -rf "${_stage}"
-	fi
+	# Apply fork overlays onto stage0-posix's vendored copies. Sibling
+	# checkouts at ../<name>/ override fetched forks; empty BRANCH no-ops.
+	apply_overlay M2libc \
+		"out/host-${HOST_ARCH}/M2libc" \
+		"out/host-${HOST_ARCH}/M2-Planet/M2libc" \
+		"out/host-${HOST_ARCH}/M2-Mesoplanet/M2libc" \
+		"out/host-${HOST_ARCH}/mescc-tools/M2libc" \
+		"out/host-${HOST_ARCH}/mescc-tools-extra/M2libc" \
+		"out/host-${HOST_ARCH}/stage0-uefi/M2libc"
+	apply_overlay bootstrap-seeds \
+		"out/host-${HOST_ARCH}/bootstrap-seeds" \
+		"out/host-${HOST_ARCH}/stage0-uefi/bootstrap-seeds"
+	apply_overlay builder-hex0-arch \
+		"out/host-${HOST_ARCH}/builder-hex0-arch"
 
 	$CP -Rf distfiles "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf tools "$SH_ROOT/out/host-${HOST_ARCH}"
