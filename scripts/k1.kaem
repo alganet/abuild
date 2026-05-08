@@ -10,4 +10,32 @@ cd /
 /${STAGE0_HOST}/bin/catm${EXE_SUFFIX} /scripts/mes-run.kaem /scripts/env.${ARCH}.kaem /scripts/mes.kaem
 /${STAGE0_HOST}/bin/kaem${EXE_SUFFIX} --verbose --strict --file /scripts/mes-run.kaem
 
+# Verify just-built mes on bh0 by running mes --version. UEFI flows
+# (amd64-uefi, riscv64-uefi) run mes via posix-runner from after-uefi.kaem.
+# 64-bit bh0 arches need MES_ARENA + MES_MAX_ARENA tuned: stage2 has a
+# 256MB user window, smaller than mes's default 64-bit M2 arena (~480MB
+# at 20M cells; sizeof(struct scm) is 24 on 64-bit). 5M cells = 120MB
+# initial + ~12MB jam fits with headroom; matching MAX prevents the GC
+# grow path from doubling beyond the user window. Stage2's syscall_brk
+# also caps at the user-space top so any runaway request is rejected
+# rather than zeroing into kernel structures.
+cd /tmp/mes-0.27.1
+if /${STAGE0_HOST}/bin/match${EXE_SUFFIX} "${ARCH}" "x86"
+then
+    /tmp/mes-0.27.1/bin/mes${EXE_SUFFIX} --version
+fi
+if /${STAGE0_HOST}/bin/match${EXE_SUFFIX} "${ARCH}" "aarch64"
+then
+    MES_ARENA=5000000
+    MES_MAX_ARENA=5000000
+    /tmp/mes-0.27.1/bin/mes${EXE_SUFFIX} --version
+fi
+if /${STAGE0_HOST}/bin/match${EXE_SUFFIX} "${ARCH}" "riscv64"
+then
+    MES_ARENA=5000000
+    MES_MAX_ARENA=5000000
+    /tmp/mes-0.27.1/bin/mes${EXE_SUFFIX} --version
+fi
+cd /
+
 echo Hello from inside the ${ARCH} image
