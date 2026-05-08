@@ -36,16 +36,19 @@ cp${EXE_SUFFIX} mes/module/srfi/srfi-9/gnu-struct.mes mes/module/srfi/srfi-9/gnu
 mkdir${EXE_SUFFIX} -p m2
 mkdir${EXE_SUFFIX} -p bin
 
-# Generate empty config.h (normally done by configure)
-# SYSTEM_LIBC is left undefined, which is correct for bootstrap
-replace${EXE_SUFFIX} --file /scripts/noop.kaem --match-on "#" --replace-with "//config" --output include/mes/config.h
+# Provide config.h with the right MES_VERSION define. We can't use
+# `-D MES_VERSION="0.27.1"` on the kaem command line because kaem strips
+# the embedded double-quotes — M2-Planet then sees MES_VERSION=0.27.1
+# (bare token), expands `make_string0 (MES_VERSION)` to `make_string0 (0)`,
+# and mes faults dereferencing NULL inside init_symbols.
+cp${EXE_SUFFIX} /scripts/mes-config.h include/mes/config.h
 
 M2-Planet${EXE_SUFFIX} \
     --debug \
     --architecture ${STAGE0_ARCH} \
     -D __${MES_CC_CPU}__=1 \
     -D __linux__=1 \
-    -D MES_VERSION="0.27.1" \
+    -D __riscv_xlen=64 \
     -f include/mes/config.h \
     -f include/mes/lib-mini.h \
     -f include/mes/lib.h \

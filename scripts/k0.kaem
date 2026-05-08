@@ -92,6 +92,7 @@ ARG=/scripts/putfile.kaem; putfile
 ARG=/scripts/noop.kaem; putfile
 ARG=/scripts/tools.kaem; putfile
 ARG=/scripts/mes.kaem; putfile
+ARG=/scripts/mes-config.h; putfile
 ARG=/scripts/env.${ARCH}.kaem; putfile
 ARG=/scripts/k0-boot.kaem; putfile
 
@@ -207,6 +208,42 @@ then
     ARG=/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi; putfile
     ARG=/posix-runner; putdir
     ARG=/posix-runner/posix-runner.c; putfile
+fi
+
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    if match${EXE_SUFFIX} ${BOARD} uefi
+    then
+        ARG=/${ARCH}; putdir
+        ARG=/${ARCH}.answers; putfile
+        ARG=/${ARCH}/artifact; putdir
+        ARG=/${ARCH}/bin; putdir
+        ARG=/${ARCH}/bin/placeholder; putfile
+        ARG=/${ARCH}/hex0.hex0; putfile
+        ARG=/${ARCH}/hex1.hex0; putfile
+        ARG=/${ARCH}/hex2.hex1; putfile
+        ARG=/${ARCH}/kaem-optional.hex0; putfile
+        ARG=/${ARCH}/catm.hex2; putfile
+        ARG=/${ARCH}/M0.hex2; putfile
+        ARG=/${ARCH}/cc_${ARCH}.M1; putfile
+        ARG=/${ARCH}/kaem.run; putfile
+        ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
+        ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
+        ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
+        ARG=/${ARCH}/test-cc.c; putfile
+        ARG=/${ARCH}/test-shift.hex2; putfile
+        ARG=/${ARCH}/test-large-offset.hex2; putfile
+        ARG=/EFI; putdir
+        ARG=/EFI/BOOT; putdir
+        ARG=/EFI/BOOT/BOOTRISCV64.EFI; putfile
+        ARG=/bootstrap-seeds/UEFI; putdir
+        ARG=/bootstrap-seeds/UEFI/${ARCH}; putdir
+        ARG=/bootstrap-seeds/UEFI/${ARCH}/hex0-seed.efi; putfile
+        ARG=/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi; putfile
+        ARG=/posix-runner; putdir
+        ARG=/posix-runner/posix-runner.c; putfile
+        ARG=/posix-runner/trap-entry-riscv64.M1; putfile
+    fi
 fi
 
 # ============================================================
@@ -369,6 +406,17 @@ then
     ARG=/M2libc/${ARCH}/uefi/libc-core.M1; putfile
     ARG=/M2libc/${ARCH}/uefi/libc-full.M1; putfile
     ARG=/M2libc/${ARCH}/uefi/PE32-${ARCH}.hex2; putfile
+fi
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    if match${EXE_SUFFIX} ${BOARD} uefi
+    then
+        ARG=/M2libc/${ARCH}/uefi; putdir
+        ARG=/M2libc/${ARCH}/uefi/bootstrap.c; putfile
+        ARG=/M2libc/${ARCH}/uefi/libc-core.M1; putfile
+        ARG=/M2libc/${ARCH}/uefi/libc-full.M1; putfile
+        ARG=/M2libc/${ARCH}/uefi/PE32-${ARCH}.hex2; putfile
+    fi
 fi
 
 # ============================================================

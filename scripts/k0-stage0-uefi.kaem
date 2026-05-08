@@ -11,6 +11,10 @@ if match${EXE_SUFFIX} ${ARCH} amd64
 then
     ARG=/EFI/BOOT/BOOTX64.EFI; putfile
 fi
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    ARG=/EFI/BOOT/BOOTRISCV64.EFI; putfile
+fi
 
 # UEFI bootstrap seeds
 ARG=/bootstrap-seeds; putdir
@@ -42,6 +46,21 @@ then
     ARG=/amd64/mescc-tools-mini-kaem.kaem; putfile
     ARG=/amd64/mescc-tools-full-kaem.kaem; putfile
     ARG=/amd64/bin/placeholder; putfile
+fi
+if match${EXE_SUFFIX} ${ARCH} riscv64
+then
+    ARG=/riscv64/hex0.hex0; putfile
+    ARG=/riscv64/hex1.hex0; putfile
+    ARG=/riscv64/hex2.hex1; putfile
+    ARG=/riscv64/kaem-optional.hex0; putfile
+    ARG=/riscv64/catm.hex2; putfile
+    ARG=/riscv64/M0.hex2; putfile
+    ARG=/riscv64/cc_riscv64.M1; putfile
+    ARG=/riscv64/kaem.run; putfile
+    ARG=/riscv64/mescc-tools-seed-kaem.kaem; putfile
+    ARG=/riscv64/mescc-tools-mini-kaem.kaem; putfile
+    ARG=/riscv64/mescc-tools-full-kaem.kaem; putfile
+    ARG=/riscv64/bin/placeholder; putfile
 fi
 
 # posix-runner source

@@ -77,6 +77,22 @@ run_make_host () {
 		$CP -Rf distfiles/stage0-uefi-1.9.1 out/host-${HOST_ARCH}/stage0-uefi
 	fi
 
+	# Overlay local stage0-uefi development files (e.g. riscv64 UEFI port)
+	# Merges into the distfile copy so make_k0_img sees a complete tree
+	_local_uefi="${SH_ROOT}/../stage0-uefi"
+	if test -d "${_local_uefi}/${ARCH}" && test -d "${_local_uefi}/bootstrap-seeds/UEFI/${ARCH}"
+	then
+		_dst="out/host-${HOST_ARCH}/stage0-uefi"
+		$CP -Rf "${_local_uefi}/${ARCH}/." "${_dst}/${ARCH}/"
+		$MKDIR -p "${_dst}/bootstrap-seeds/UEFI/${ARCH}"
+		$CP -Rf "${_local_uefi}/bootstrap-seeds/UEFI/${ARCH}/." "${_dst}/bootstrap-seeds/UEFI/${ARCH}/"
+		test -f "${_local_uefi}/kaem.${ARCH}" && $CP -f "${_local_uefi}/kaem.${ARCH}" "${_dst}/kaem.${ARCH}"
+		test -f "${_local_uefi}/${ARCH}.answers" && $CP -f "${_local_uefi}/${ARCH}.answers" "${_dst}/${ARCH}.answers"
+		$CP -Rf "${_local_uefi}/M2libc/${ARCH}/." "${_dst}/M2libc/${ARCH}/"
+		test -d "${_local_uefi}/M2libc/uefi" && $CP -Rf "${_local_uefi}/M2libc/uefi/." "${_dst}/M2libc/uefi/"
+		test -d "${_local_uefi}/posix-runner" && $CP -Rf "${_local_uefi}/posix-runner/." "${_dst}/posix-runner/"
+	fi
+
 	$CP -Rf distfiles "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf tools "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf scripts "$SH_ROOT/out/host-${HOST_ARCH}"
@@ -182,16 +198,19 @@ run_make_k0_img () {
 			$CP -Rf "${_uefi_src}/M2-Mesoplanet" ./M2-Mesoplanet
 			$CP -Rf "${_uefi_src}/mescc-tools" ./mescc-tools
 			$CP -Rf "${_uefi_src}/mescc-tools-extra" ./mescc-tools-extra
-			# stage0-uefi arch sources
-			$CP -Rf "${_uefi_src}/${ARCH}" "./${ARCH}"
+			# stage0-uefi arch sources (merge into existing posix dir using cp -a + trailing /)
+			$CP -Rf "${_uefi_src}/${ARCH}/." "./${ARCH}/"
 			$CP "${_uefi_src}/kaem.${ARCH}" "./kaem.${ARCH}"
 			$CP "${_uefi_src}/${ARCH}.answers" "./${ARCH}.answers"
-			# UEFI boot entry
+			# UEFI boot entry (architecture-specific name per UEFI spec)
+			_uefi_boot_name="$( case "$ARCH" in amd64) echo BOOTX64.EFI ;; riscv64) echo BOOTRISCV64.EFI ;; aarch64) echo BOOTAA64.EFI ;; *) echo BOOT.EFI ;; esac )"
 			$MKDIR -p ./EFI/BOOT
-			$CP "./bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi" "./EFI/BOOT/BOOTX64.EFI"
-			# posix-runner
+			$CP "${_uefi_src}/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi" "./EFI/BOOT/${_uefi_boot_name}"
+			$MKDIR -p "./bootstrap-seeds/UEFI/${ARCH}"
+			$CP -Rf "${_uefi_src}/bootstrap-seeds/UEFI/${ARCH}/." "./bootstrap-seeds/UEFI/${ARCH}/"
+			# posix-runner (whole dir, so trap-entry-${ARCH}.M1 etc. are picked up)
 			$MKDIR -p ./posix-runner
-			$CP "${_uefi_src}/posix-runner/posix-runner.c" "./posix-runner/posix-runner.c"
+			$CP -Rf "${_uefi_src}/posix-runner/." "./posix-runner/"
 		fi
 
 		# Concatenate env preamble + k0.kaem for host-side execution
@@ -216,6 +235,10 @@ run_make_k0_img () {
 				./bin/fatput "$_fat" "$_rel" "$_file"
 			done
 			./bin/fatput "$_fat" /k0.img "$SH_ROOT/out/k0-${ARCH}.img"
+			# startup.nsh (riscv64 EDK2 doesn't auto-load default boot path)
+			_startup="$SH_ROOT/out/startup.nsh"
+			printf 'FS0:\ncd \\\nEFI\\BOOT\\%s\n' "${_uefi_boot_name}" > "${_startup}"
+			./bin/fatput "$_fat" /startup.nsh "${_startup}"
 		fi
 	fi
 
@@ -268,6 +291,26 @@ run_boot_k0_img () {
 					then
 						echo "info: run make_k0_img first." && return 1
 					fi
+					;;
+				uefi)
+					OVMF_RISCV64_CODE="${OVMF_RISCV64_CODE:-/usr/share/qemu-efi-riscv64/RISCV_VIRT_CODE.fd}"
+					OVMF_RISCV64_VARS="${OVMF_RISCV64_VARS:-/usr/share/qemu-efi-riscv64/RISCV_VIRT_VARS.fd}"
+					_rvars="out/k0-${ARCH}-vars.fd"
+					$CP "${OVMF_RISCV64_VARS}" "${_rvars}"
+					if ! $QEMU \
+						-machine virt \
+						-m 4G \
+						-nographic \
+						-drive if=pflash,format=raw,unit=0,file=${OVMF_RISCV64_CODE},readonly=on \
+						-drive if=pflash,format=raw,unit=1,file=${_rvars} \
+						-device nvme,serial=deadbeef,drive=hd0 \
+						-drive file="out/k0-${ARCH}-fat.img",format=raw,if=none,id=hd0 \
+						--no-reboot
+					then
+						echo "info: run make_k0_img first." && return 1
+					fi
+					# Extract updated bh0 image from FAT32 container
+					./out/host-${HOST_ARCH}/bin/fatget "out/k0-${ARCH}-fat.img" /k0.img "out/k0-${ARCH}.img"
 					;;
 				*)
 					echo "error: unsupported BOARD=$BOARD for ARCH=$ARCH" && exit 1
