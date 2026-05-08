@@ -93,6 +93,37 @@ run_make_host () {
 		test -d "${_local_uefi}/posix-runner" && $CP -Rf "${_local_uefi}/posix-runner/." "${_dst}/posix-runner/"
 	fi
 
+	# Overlay local builder-hex0-arch tree if present. Mirrors the stage0-uefi
+	# overlay above. Used when iterating on stage2 (e.g. fixing aarch64 fork
+	# emulation) without round-tripping through the upstream tarball.
+	_local_bha="${SH_ROOT}/../builder-hex0-arch"
+	if test -d "${_local_bha}"
+	then
+		$CP -Rf "${_local_bha}/." "out/host-${HOST_ARCH}/builder-hex0-arch/"
+	fi
+
+	# Overlay local mes development tree by re-tarring it into distfiles.
+	# Auto-detects /home/devel/Projects/mes; absent the clone, the GNU FTP
+	# tarball wins. Mirrors the stage0-uefi overlay above. Determinism flags
+	# (--sort, --owner, --group, --mtime, gzip --no-name) keep the answers
+	# seal stable across rebuilds.
+	_local_mes="${SH_ROOT}/../mes"
+	if test -d "${_local_mes}"
+	then
+		_stage="${SH_ROOT}/out/.mes-overlay-stage"
+		$RM -rf "${_stage}"
+		$MKDIR -p "${_stage}/mes-0.27.1"
+		$CP -Rf "${_local_mes}/." "${_stage}/mes-0.27.1/"
+		(cd "${_stage}" && $TAR --create \
+			--sort=name --owner=0 --group=0 \
+			--mtime='2024-01-01 00:00:00 UTC' --format=ustar \
+			--exclude='.git' --exclude='.git/*' \
+			--file=mes-0.27.1.tar mes-0.27.1)
+		$GZIP --force --no-name "${_stage}/mes-0.27.1.tar"
+		$CP -f "${_stage}/mes-0.27.1.tar.gz" "${SH_ROOT}/distfiles/mes-0.27.1.tar.gz"
+		$RM -rf "${_stage}"
+	fi
+
 	$CP -Rf distfiles "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf tools "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf scripts "$SH_ROOT/out/host-${HOST_ARCH}"
@@ -155,7 +186,7 @@ run_make_k0_img () {
 		_mes_cpu="$( case "$ARCH" in amd64) echo x86_64 ;; *) echo "$ARCH" ;; esac )"
 		_mes_cc_cpu="$( case "$ARCH" in x86) echo i386 ;; amd64) echo x86_64 ;; *) echo "$ARCH" ;; esac )"
 		_mes_blood_elf="$( case "$ARCH" in x86) echo "--little-endian" ;; *) echo "--64" ;; esac )"
-		_mes_base="$( case "$ARCH" in x86) echo "0x1000000" ;; *) echo "0x0600000" ;; esac )"
+		_mes_base="$( case "$ARCH" in x86) echo "0x08048000" ;; *) echo "0x0600000" ;; esac )"
 		_exe_suffix="$( case "$BOARD" in uefi) echo ".efi" ;; *) echo "" ;; esac )"
 		_operating_system="$( case "$BOARD" in uefi) echo "UEFI" ;; *) echo "Linux" ;; esac )"
 
@@ -243,11 +274,6 @@ run_make_k0_img () {
 	fi
 
 	cd "$SH_ROOT"
-
-	if ! test -f "k0-${ARCH}.answers"
-	then
-		./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -o "k0-${ARCH}.answers" "out/k0-${ARCH}.img"
-	fi
 }
 
 run_boot_k0_img () {
@@ -376,7 +402,15 @@ run_boot_k0_img () {
 }
 
 run_sha256sum_k0_answers () {
-	./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -c "k0-${ARCH}.answers"
+	# Seal post-boot: some boards (e.g. aarch64-raspi3b) write to the disk
+	# during boot, so capturing the seal here covers full end-to-end
+	# reproducibility. For boards whose boot is byte-identical to build,
+	# this collapses to the same hash anyway.
+	if ! test -f "k0-${ARCH}-${BOARD}.answers"
+	then
+		./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -o "k0-${ARCH}-${BOARD}.answers" "out/k0-${ARCH}.img"
+	fi
+	./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -c "k0-${ARCH}-${BOARD}.answers"
 }
 
 run_make_k0 () {
