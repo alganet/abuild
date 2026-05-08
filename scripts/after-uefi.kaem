@@ -16,9 +16,27 @@ ${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${A
 cd /
 nowatchdog${EXE_SUFFIX}
 
-# Build posix-runner (Linux syscall emulator for running ELF binaries on UEFI)
+# Build posix-runner (Linux syscall emulator for running ELF binaries on UEFI).
+# riscv64 takes a hand-written trap-entry stub (trap-entry-riscv64.M1) that
+# must be linked at the M1 stage; M2-Mesoplanet can't inject extra .M1 inputs
+# so we run the toolchain manually for that arch. amd64 still uses
+# M2-Mesoplanet for simplicity.
 cd /posix-runner
-${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file posix-runner.c --output ${BINDIR}/posix-runner${EXE_SUFFIX}
+if match${EXE_SUFFIX} "${ARCH}" "amd64"
+then
+	${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file posix-runner.c --output ${BINDIR}/posix-runner${EXE_SUFFIX}
+fi
+if match${EXE_SUFFIX} "${ARCH}" "riscv64"
+then
+	# 1) Preprocess (resolve #includes, expand defines)
+	${BINDIR}/M2-Mesoplanet${EXE_SUFFIX} -E --os ${OPERATING_SYSTEM} --architecture ${ARCH} --file posix-runner.c --output posix-runner.preproc.c
+	# 2) Compile preprocessed C -> M1
+	${BINDIR}/M2-Planet${EXE_SUFFIX} --architecture ${ARCH} -f posix-runner.preproc.c -o posix-runner.M1
+	# 3) Assemble (with hand-written trap entry linked in)
+	${BINDIR}/M1${EXE_SUFFIX} --architecture ${ARCH} --little-endian -f /M2libc/${ARCH}/${ARCH}_defs.M1 -f /M2libc/${ARCH}/uefi/libc-full.M1 -f trap-entry-${ARCH}.M1 -f posix-runner.M1 -o posix-runner.hex2
+	# 4) Link to PE32+
+	${BINDIR}/hex2${EXE_SUFFIX} --architecture ${ARCH} --little-endian --base-address 0x0 -f /M2libc/${ARCH}/uefi/PE32-${ARCH}.hex2 -f posix-runner.hex2 -o ${BINDIR}/posix-runner${EXE_SUFFIX}
+fi
 cd /
 
 # Run pre-build (may break the seal)
