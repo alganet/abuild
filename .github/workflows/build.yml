@@ -52,21 +52,47 @@ jobs:
         include:
           - arch: x86
             board: bios
-          - arch: riscv64
-            board: virt
-          - arch: aarch64
-            board: virt
           - arch: amd64
             board: uefi
+          - arch: aarch64
+            board: virt
+          - arch: aarch64
+            board: raspi3b
+          - arch: riscv64
+            board: virt
+          - arch: riscv64
+            board: uefi
+          - arch: riscv64
+            board: sifive_u
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/action_get_host_artifact
-      - run: ARCH=${{ matrix.arch }} BOARD=${{ matrix.board }} sh run.sh make_k0_img sha256sum_k0_answers
-      - run: git diff --exit-code k0-${{ matrix.arch }}.answers
+      - run: >
+          ARCH=${{ matrix.arch }}
+          BOARD=${{ matrix.board }}
+          QEMU=qemu-local/bin/qemu-system-${{ matrix.arch == 'x86' && 'x86_64' || (matrix.arch == 'amd64' && 'x86_64' || matrix.arch) }}
+          sh run.sh make_k0_img
+      # Snapshot pre-boot bytes so the artifact mirrors fresh build output.
+      # boot_k0_img mutates k0-*.img / k0-*-fat.img in place (kernel
+      # /dev/hda rewrite for non-UEFI; append-mode catm.efi for UEFI), so
+      # re-booting the post-boot artifact replays double-applied state and
+      # crashes the UEFI binaries. Restore before upload.
+      - run: |
+          cp out/k0-${{ matrix.arch }}.img /tmp/preboot.img
+          test -f out/k0-${{ matrix.arch }}-fat.img && cp out/k0-${{ matrix.arch }}-fat.img /tmp/preboot-fat.img || true
+      - run: >
+          ARCH=${{ matrix.arch }}
+          BOARD=${{ matrix.board }}
+          QEMU=qemu-local/bin/qemu-system-${{ matrix.arch == 'x86' && 'x86_64' || (matrix.arch == 'amd64' && 'x86_64' || matrix.arch) }}
+          sh run.sh boot_k0_img sha256sum_k0_answers
+      - run: git diff --exit-code k0-${{ matrix.arch }}-${{ matrix.board }}.answers
+      - run: |
+          mv /tmp/preboot.img out/k0-${{ matrix.arch }}.img
+          test -f /tmp/preboot-fat.img && mv /tmp/preboot-fat.img out/k0-${{ matrix.arch }}-fat.img || true
       - uses: actions/upload-artifact@v4
         with:
-          name: k0_img_${{ matrix.arch }}
+          name: k0_img_${{ matrix.arch }}_${{ matrix.board }}
           path: |
             out/k0-${{ matrix.arch }}.img
             out/k0-${{ matrix.arch }}-fat.img
@@ -80,12 +106,18 @@ jobs:
         include:
           - arch: x86
             board: bios
-          - arch: riscv64
-            board: virt
-          - arch: aarch64
-            board: virt
           - arch: amd64
             board: uefi
+          - arch: aarch64
+            board: virt
+          - arch: aarch64
+            board: raspi3b
+          - arch: riscv64
+            board: virt
+          - arch: riscv64
+            board: uefi
+          - arch: riscv64
+            board: sifive_u
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
@@ -97,18 +129,20 @@ jobs:
           QEMU: qemu-local/bin/qemu-system-${{ matrix.arch == 'x86' && 'x86_64' || (matrix.arch == 'amd64' && 'x86_64' || matrix.arch) }}
         run: |
           # Remove old checksum file
-          rm "k0-${ARCH}.answers"
+          rm "k0-${ARCH}-${BOARD}.answers"
 
           # Build k0.img with self-breaking boot (generates new checksum)
           FORCE_FAIL=yes sh run.sh make_k0_img
 
-          # Checks before booting, it should pass
+          # Capture pre-boot seal (sha256sum_k0_answers writes when file
+          # is absent; this happens before any disk mutation)
           sh run.sh sha256sum_k0_answers
 
-          # Boots the image, it should now self-modify and break the seal
+          # Boot the image; FORCE_FAIL injects a self-modifying step
           sh run.sh boot_k0_img
 
-          # If the check fails, this test passes
+          # Re-verify the now-mutated image against the pre-boot seal.
+          # The seal MUST fail; ! makes a failure here pass the test.
           ! sh run.sh sha256sum_k0_answers &&
             echo "'FAILED' sha256sum message here is pass, 'PASSED' means fail."
 
@@ -121,23 +155,25 @@ jobs:
         include:
           - arch: x86
             board: bios
-          - arch: riscv64
-            board: virt
-          - arch: riscv64
-            board: sifive_u
+          - arch: amd64
+            board: uefi
           - arch: aarch64
             board: virt
           - arch: aarch64
             board: raspi3b
-          - arch: amd64
+          - arch: riscv64
+            board: virt
+          - arch: riscv64
             board: uefi
+          - arch: riscv64
+            board: sifive_u
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/action_get_host_artifact
       - uses: actions/download-artifact@v4
         with:
-          name: k0_img_${{ matrix.arch }}
+          name: k0_img_${{ matrix.arch }}_${{ matrix.board }}
           path: out
       - run: >
           ARCH=${{ matrix.arch }}
