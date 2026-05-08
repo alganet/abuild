@@ -33,6 +33,8 @@ M2LIBC_REPO="${M2LIBC_REPO-https://github.com/alganet/M2libc.git}"
 M2LIBC_BRANCH="${M2LIBC_BRANCH-riscv64-uefi}"
 BOOTSTRAP_SEEDS_REPO="${BOOTSTRAP_SEEDS_REPO-https://github.com/alganet/bootstrap-seeds.git}"
 BOOTSTRAP_SEEDS_BRANCH="${BOOTSTRAP_SEEDS_BRANCH-stage0-uefi}"
+BUILDER_HEX0_ARCH_REPO="${BUILDER_HEX0_ARCH_REPO-https://github.com/alganet/builder-hex0-arch.git}"
+BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-brk_cap}"
 
 $MKDIR -p distfiles
 
@@ -80,7 +82,8 @@ fetch_github_archive () {
 # --- base distfiles (always upstream) ---
 
 if ! test -f distfiles/builder-hex0-arch-main.tar.gz
-then $WGET -O distfiles/builder-hex0-arch-main.tar.gz https://github.com/alganet/builder-hex0-arch/archive/refs/heads/main.tar.gz
+then $WGET -O distfiles/builder-hex0-arch-main.tar.gz \
+	"https://github.com/alganet/builder-hex0-arch/archive/refs/heads/${BUILDER_HEX0_ARCH_BRANCH}.tar.gz"
 fi
 
 if ! test -f distfiles/stage0-posix-1.9.1.tar.gz
