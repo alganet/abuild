@@ -79,8 +79,8 @@ jobs:
       # re-booting the post-boot artifact replays double-applied state and
       # crashes the UEFI binaries. Restore before upload.
       - run: |
-          cp out/k0-${{ matrix.arch }}.img /tmp/preboot.img
-          test -f out/k0-${{ matrix.arch }}-fat.img && cp out/k0-${{ matrix.arch }}-fat.img /tmp/preboot-fat.img || true
+          cp out/k0-${{ matrix.arch }}-${{ matrix.board }}.img /tmp/preboot.img
+          test -f out/k0-${{ matrix.arch }}-${{ matrix.board }}-fat.img && cp out/k0-${{ matrix.arch }}-${{ matrix.board }}-fat.img /tmp/preboot-fat.img || true
       - run: >
           ARCH=${{ matrix.arch }}
           BOARD=${{ matrix.board }}
@@ -88,14 +88,14 @@ jobs:
           sh run.sh boot_k0_img sha256sum_k0_answers
       - run: git diff --exit-code k0-${{ matrix.arch }}-${{ matrix.board }}.answers
       - run: |
-          mv /tmp/preboot.img out/k0-${{ matrix.arch }}.img
-          test -f /tmp/preboot-fat.img && mv /tmp/preboot-fat.img out/k0-${{ matrix.arch }}-fat.img || true
+          mv /tmp/preboot.img out/k0-${{ matrix.arch }}-${{ matrix.board }}.img
+          test -f /tmp/preboot-fat.img && mv /tmp/preboot-fat.img out/k0-${{ matrix.arch }}-${{ matrix.board }}-fat.img || true
       - uses: actions/upload-artifact@v4
         with:
           name: k0_img_${{ matrix.arch }}_${{ matrix.board }}
           path: |
-            out/k0-${{ matrix.arch }}.img
-            out/k0-${{ matrix.arch }}-fat.img
+            out/k0-${{ matrix.arch }}-${{ matrix.board }}.img
+            out/k0-${{ matrix.arch }}-${{ matrix.board }}-fat.img
 
   job_test_k0_img:
     runs-on: ubuntu-24.04
