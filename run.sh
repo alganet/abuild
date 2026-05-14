@@ -58,7 +58,8 @@ cd "$SH_ROOT"
 . "$SH_ROOT/distfiles.sh"
 
 # apply_overlay <name> <dest1> [<dest2> ...]
-# Copies overlay-<name>/. into each existing destination. Sibling at
+# Copies overlay-<name>/. into each existing destination, excluding .git and
+# gitignored files via overlay_tracked (from distfiles.sh). Sibling at
 # ../<name>/ wins over distfiles/overlay-<name>/. No-op if neither source
 # exists (e.g., overlay branch is "" and no sibling).
 apply_overlay () {
@@ -70,7 +71,7 @@ apply_overlay () {
 	else return 0
 	fi
 	for _dst
-	do test -d "${_dst}" && $CP -Rf "${_src}/." "${_dst}/"
+	do test -d "${_dst}" && overlay_tracked "${_src}" "${_dst}"
 	done
 }
 
