@@ -38,6 +38,36 @@ BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-brk_cap}"
 
 $MKDIR -p distfiles
 
+# Copy <src>/. to <dst>/, contributing the same bytes a github source tarball
+# would. Plain `cp -Rf` leaks every locally-built artifact in <src> (e.g.
+# *.bin, *.o, __pycache__) into the destination — those are invisible to
+# `git status` but still change the bytes downstream tools see. When <src> is
+# a git working tree, we enumerate tracked paths via `git ls-files
+# --recurse-submodules` (faithful to git's semantics: tracked files override
+# .gitignore, submodule contents included). Plain directories (e.g. an
+# already-extracted github tarball) just exclude .git via tar. <dst> is
+# created if missing.
+overlay_tracked () {
+	_src="$1"; _dst="$2"
+	_tmp="${SH_ROOT}/distfiles/.overlay-tmp.tar"
+	$MKDIR -p "${_dst}"
+	if test -e "${_src}/.git"
+	then
+		(cd "${_src}" && PATH=/usr/bin:/bin $GIT ls-files -z --recurse-submodules \
+			| $TAR --create --null --no-recursion --files-from=- \
+				--file="${_tmp}")
+	else
+		# Plain directory (e.g. an extracted github tarball). Exclude only the
+		# .git directory; .gitignore / .gitattributes / .gitmodules are
+		# tracked files in many repos and `--exclude-vcs` would wrongly drop
+		# them, diverging from the git working-tree branch above.
+		(cd "${_src}" && $TAR --create --file="${_tmp}" \
+			--exclude='.git' --exclude='./.git/*' .)
+	fi
+	(cd "${_dst}" && $TAR --extract --file="${_tmp}")
+	$RM -f "${_tmp}"
+}
+
 # Deterministic re-tar of <src>/. into <dest> with top-level dir <topname>.
 # Same content -> byte-identical tarball.
 repackage_to_tarball () {
@@ -45,10 +75,12 @@ repackage_to_tarball () {
 	_stage="${SH_ROOT}/distfiles/.repackage-stage"
 	$RM -rf "${_stage}"
 	$MKDIR -p "${_stage}/${_topname}"
-	$CP -Rf "${_src}/." "${_stage}/${_topname}/"
+	overlay_tracked "${_src}" "${_stage}/${_topname}"
 	(cd "${_stage}" && $TAR --create \
 		--sort=name --owner=0 --group=0 \
 		--mtime='2024-01-01 00:00:00 UTC' --format=ustar \
+		--mode='go=rX,u=rwX' \
+		--no-acls --no-selinux --no-xattrs \
 		--exclude='.git' --exclude='.git/*' \
 		--file="${_topname}.tar" "${_topname}")
 	$GZIP --force --no-name "${_stage}/${_topname}.tar"
@@ -97,8 +129,7 @@ fi
 if test -d "${SH_ROOT}/../stage0-uefi"
 then
 	$RM -rf distfiles/stage0-uefi-1.9.1
-	$MKDIR -p distfiles/stage0-uefi-1.9.1
-	$CP -Rf "${SH_ROOT}/../stage0-uefi/." distfiles/stage0-uefi-1.9.1/
+	overlay_tracked "${SH_ROOT}/../stage0-uefi" distfiles/stage0-uefi-1.9.1
 elif test -n "${STAGE0_UEFI_BRANCH}"
 then
 	if ! test -d distfiles/stage0-uefi-1.9.1
