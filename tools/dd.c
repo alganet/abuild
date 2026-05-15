@@ -98,7 +98,9 @@ int main(int argc, char** argv) {
     }
     free(buf);
   } else {
-    int32_t file_offset = lseek(input_fd, 0, 2);
+    /* lseek returns off_t (64-bit on rv64/x86_64); use long so files
+     * >2 GiB don't silently corrupt pad_total via int32_t truncation. */
+    long file_offset = lseek(input_fd, 0, 2);
     if (file_offset == -1) {
       fputs("Error: Failed to seek to end of input file\n", stderr);
       close(input_fd);

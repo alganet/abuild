@@ -1,4 +1,0 @@
-# SPDX-FileCopyrightText: 2025 Alexandre Gomes Gaigalas <alganet@gmail.com>
-# SPDX-License-Identifier: GPL-3.0-or-later
-
-mkfat${EXE_SUFFIX} /tmp/disk.img 350

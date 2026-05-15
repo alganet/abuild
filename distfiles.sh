@@ -60,9 +60,12 @@ overlay_tracked () {
 		# Plain directory (e.g. an extracted github tarball). Exclude only the
 		# .git directory; .gitignore / .gitattributes / .gitmodules are
 		# tracked files in many repos and `--exclude-vcs` would wrongly drop
-		# them, diverging from the git working-tree branch above.
-		(cd "${_src}" && $TAR --create --file="${_tmp}" \
-			--exclude='.git' --exclude='./.git/*' .)
+		# them, diverging from the git working-tree branch above. Pipe through
+		# LC_ALL=C sort so the archive order is filesystem-independent (the
+		# git branch is sorted by git ls-files; match that).
+		(cd "${_src}" && $FIND . -path ./.git -prune -o -print \
+			| LC_ALL=C $SORT \
+			| $TAR --create --no-recursion --files-from=- --file="${_tmp}")
 	fi
 	(cd "${_dst}" && $TAR --extract --file="${_tmp}")
 	$RM -f "${_tmp}"

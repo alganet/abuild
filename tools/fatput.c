@@ -111,17 +111,24 @@ void fat_write(int cluster, int value) {
   free(buf);
 }
 
-/* Allocate a free cluster, mark it as end-of-chain */
+/* Allocate a free cluster, mark it as end-of-chain. The FAT region holds
+ * (bpb_sectors_per_fat * SECTOR_SIZE / 4) entries; entries 0 and 1 are
+ * reserved, so the highest usable cluster number is that count minus 1.
+ * Without this bound, a full FAT loops forever scanning past the region. */
 int alloc_cluster() {
   int c;
+  int max;
   c = 2;
-  while (1) {
+  max = (bpb_sectors_per_fat * SECTOR_SIZE) / 4;
+  while (c < max) {
     if (fat_read(c) == 0) {
       fat_write(c, 0x0FFFFFFF);
       return c;
     }
     c = c + 1;
   }
+  fputs("fatput: FAT region exhausted; image needs more sectors\n", stderr);
+  exit(EXIT_FAILURE);
 }
 
 /* Parse FAT32 BPB from the image */

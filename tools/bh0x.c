@@ -61,8 +61,9 @@ int main(int argc, char** argv) {
   output_path = calloc(PATH_SIZE, sizeof(char));
   file_contents = calloc(BUFFER_SIZE, sizeof(char));
 
-  /* Skip header blocks until we find a non-full block */
-  bytes = read(input, buffer, BLOCK_SIZE);
+  /* Skip header blocks until we find a non-full block. A full block
+   * (strlen == BLOCK_SIZE) is part of the bh0 metadata header; the
+   * first short block is where the file payload begins. */
   while (1) {
     bytes = read(input, buffer, BLOCK_SIZE);
     if (BLOCK_SIZE != strlen(buffer)) {
