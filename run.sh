@@ -39,6 +39,7 @@ MKDIR="${MKDIR:-$(command -v mkdir)}"
 RM="${RM:-$(command -v rm)}"
 CP="${CP:-$(command -v cp)}"
 FIND="${FIND:-$(command -v find)}"
+SORT="${SORT:-$(command -v sort)}"
 GZIP="${GZIP:-$(command -v gzip)}"
 TAR="${TAR:-$(command -v tar)}"
 MAKE="${MAKE:-$(command -v make)}"
@@ -190,8 +191,13 @@ run_make_k0_img () {
 	# Skip rebuild when the per-(arch,board) image already exists. UEFI also
 	# requires the FAT32 wrapper. The image file name encodes BOARD so two
 	# variants of the same ARCH can coexist in out/ without overwriting.
+	# CI's reseal-test job depends on the cached image surviving across
+	# steps, so we don't invalidate on mtime. Local development that
+	# changes tools/ or scripts/ should set FORCE_REBUILD=yes (or rm
+	# out/k0-*.img) to bypass.
 	_need_build=1
-	if test -f "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img"
+	if test -f "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img" && \
+	   test "${FORCE_REBUILD:-no}" != "yes"
 	then
 		case "$BOARD" in
 			uefi) test -f "$SH_ROOT/out/k0-${ARCH}-${BOARD}-fat.img" && _need_build=0 ;;
@@ -230,13 +236,19 @@ run_make_k0_img () {
 		fi
 
 		# Compute board-dependent variables
-		_stage0_host="$( case "$ARCH" in aarch64) echo AArch64 ;; amd64) echo AMD64 ;; *) echo "$ARCH" ;; esac )"
-		_mes_cpu="$( case "$ARCH" in amd64) echo x86_64 ;; *) echo "$ARCH" ;; esac )"
-		_mes_cc_cpu="$( case "$ARCH" in x86) echo i386 ;; amd64) echo x86_64 ;; *) echo "$ARCH" ;; esac )"
-		_mes_blood_elf="$( case "$ARCH" in x86) echo "--little-endian" ;; *) echo "--64" ;; esac )"
-		_mes_base="$( case "$ARCH" in x86) echo "0x08048000" ;; *) echo "0x0600000" ;; esac )"
-		_exe_suffix="$( case "$BOARD" in uefi) echo ".efi" ;; *) echo "" ;; esac )"
-		_operating_system="$( case "$BOARD" in uefi) echo "UEFI" ;; *) echo "Linux" ;; esac )"
+		# Resolve all per-(arch,board) tunables in a single pass so the
+		# arch-specific column is easy to audit.
+		case "$ARCH" in
+			x86)     _stage0_host=x86;      _mes_cpu=x86;     _mes_cc_cpu=i386;   _mes_blood_elf=--little-endian; _mes_base=0x08048000 ;;
+			amd64)   _stage0_host=AMD64;    _mes_cpu=x86_64;  _mes_cc_cpu=x86_64; _mes_blood_elf=--64;            _mes_base=0x0600000  ;;
+			aarch64) _stage0_host=AArch64;  _mes_cpu=aarch64; _mes_cc_cpu=aarch64;_mes_blood_elf=--64;            _mes_base=0x0600000  ;;
+			riscv64) _stage0_host=riscv64;  _mes_cpu=riscv64; _mes_cc_cpu=riscv64;_mes_blood_elf=--64;            _mes_base=0x0600000  ;;
+			*)       echo "error: unsupported ARCH=$ARCH" >&2; return 1 ;;
+		esac
+		case "$BOARD" in
+			uefi) _exe_suffix=.efi; _operating_system=UEFI  ;;
+			*)    _exe_suffix=;     _operating_system=Linux ;;
+		esac
 
 		# Generate env preamble for host-side kaem execution
 		# Host always runs Linux with bare binary names, regardless of target board
@@ -245,7 +257,7 @@ run_make_k0_img () {
 
 		# Concatenate env preamble + seal-break into pre-build.kaem
 		# UEFI boards use dd-based seal-break (catm doesn't close file handles)
-		if ./${STAGE0_HOST}/bin/match "yes" "${FORCE_FAIL:-no}"
+		if test "${FORCE_FAIL:-no}" = "yes"
 		then
 			case "$BOARD" in
 				uefi) ./${STAGE0_HOST}/bin/catm ./scripts/pre-build.kaem ./scripts/env.${ARCH}.kaem ./scripts/seal-break-uefi.kaem ;;
@@ -267,7 +279,7 @@ run_make_k0_img () {
 		esac
 
 		# For UEFI: copy stage0-uefi files into wrap sandbox so k0.kaem can putfile them
-		if ./${STAGE0_HOST}/bin/match "uefi" "${BOARD}"
+		if test "${BOARD}" = "uefi"
 		then
 			_uefi_src="./stage0-uefi"
 			# Replace shared sources with stage0-uefi's pinned versions
@@ -282,7 +294,12 @@ run_make_k0_img () {
 			$CP "${_uefi_src}/kaem.${ARCH}" "./kaem.${ARCH}"
 			$CP "${_uefi_src}/${ARCH}.answers" "./${ARCH}.answers"
 			# UEFI boot entry (architecture-specific name per UEFI spec)
-			_uefi_boot_name="$( case "$ARCH" in amd64) echo BOOTX64.EFI ;; riscv64) echo BOOTRISCV64.EFI ;; aarch64) echo BOOTAA64.EFI ;; *) echo BOOT.EFI ;; esac )"
+			case "$ARCH" in
+				amd64)   _uefi_boot_name=BOOTX64.EFI    ;;
+				aarch64) _uefi_boot_name=BOOTAA64.EFI   ;;
+				riscv64) _uefi_boot_name=BOOTRISCV64.EFI ;;
+				*)       _uefi_boot_name=BOOT.EFI       ;;
+			esac
 			$MKDIR -p ./EFI/BOOT
 			$CP "${_uefi_src}/bootstrap-seeds/UEFI/${ARCH}/kaem-optional-seed.efi" "./EFI/BOOT/${_uefi_boot_name}"
 			$MKDIR -p "./bootstrap-seeds/UEFI/${ARCH}"
@@ -299,17 +316,20 @@ run_make_k0_img () {
 
 		# For UEFI: create FAT32 disk from the bh0 image contents + /k0.img
 		# Extract bh0 → out/k0-${ARCH}-${BOARD}/, create FAT32 from that tree
-		if ./${STAGE0_HOST}/bin/match "uefi" "${BOARD}"
+		if test "${BOARD}" = "uefi"
 		then
 			_fat="$SH_ROOT/out/k0-${ARCH}-${BOARD}-fat.img"
 			_tree="$SH_ROOT/out/k0-${ARCH}-${BOARD}"
 			./bin/bh0x "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img" "$_tree"
 			./bin/mkfat "$_fat" 350
-			$FIND "$_tree" -type d | while read _dir; do
+			# Sort under LC_ALL=C so FAT directory entry order is
+			# host-independent. Without the sort, readdir() order
+			# (filesystem-hashed on ext4) leaks into the image bytes.
+			$FIND "$_tree" -type d | LC_ALL=C $SORT | while IFS= read -r _dir; do
 				_rel="${_dir#${_tree}}"
 				test -n "$_rel" && ./bin/fatput "$_fat" "$_rel"
 			done
-			$FIND "$_tree" -type f | while read _file; do
+			$FIND "$_tree" -type f | LC_ALL=C $SORT | while IFS= read -r _file; do
 				_rel="${_file#${_tree}}"
 				./bin/fatput "$_fat" "$_rel" "$_file"
 			done
@@ -446,7 +466,7 @@ run_boot_k0_img () {
 	# UEFI: extract post-boot k0.img from the FAT32 wrapper now that we know
 	# the guest succeeded (re-extracting after a failed boot would seal a
 	# broken image).
-	if ./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/match "uefi" "${BOARD}"
+	if test "${BOARD}" = "uefi"
 	then
 		./out/host-${HOST_ARCH}/bin/fatget "$_fat" /k0.img "$_img"
 	fi
@@ -457,8 +477,14 @@ run_sha256sum_k0_answers () {
 	# during boot, so capturing the seal here covers full end-to-end
 	# reproducibility. For boards whose boot is byte-identical to build,
 	# this collapses to the same hash anyway.
+	#
+	# When the answers file is missing we GENERATE rather than verify --
+	# this is how CI seeds new variants and how a developer rebases the
+	# expected hash after intentional changes. Print a loud notice so
+	# "I accidentally deleted the file" is never silently rubber-stamped.
 	if ! test -f "k0-${ARCH}-${BOARD}.answers"
 	then
+		echo "notice: k0-${ARCH}-${BOARD}.answers missing -- generating fresh seal (re-run will verify)." >&2
 		./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -o "k0-${ARCH}-${BOARD}.answers" "out/k0-${ARCH}-${BOARD}.img"
 	fi
 	./out/host-${HOST_ARCH}/${STAGE0_HOST}/bin/sha256sum -c "k0-${ARCH}-${BOARD}.answers"

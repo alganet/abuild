@@ -10,5 +10,15 @@ runs:
       with:
         name: host_files
         path: out/host-x86
+    # actions/upload-artifact zips into a tarball that does not preserve
+    # the executable bit, so anything that needs to run gets +x back here.
+    # `find` keeps this resilient against future shape changes in the host
+    # tree (additional bootstrapped binaries, host-aarch64 / host-riscv64,
+    # etc.).
     - shell: sh
-      run: chmod +x out/host-x86/bootstrap-seeds/POSIX/x86/hex0-seed out/host-x86/x86/bin/* out/host-x86/bin/*
+      run: |
+        find out/host-x86 -type f \( \
+              -name 'hex0-seed' \
+           -o -name 'kaem-optional-seed' \
+           -o -path '*/bin/*' \
+          \) -exec chmod +x {} +
