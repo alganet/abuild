@@ -49,6 +49,24 @@ TIMEOUT="${TIMEOUT:-$(command -v timeout)}"
 TEE="${TEE:-$(command -v tee)}"
 GREP="${GREP:-$(command -v grep)}"
 
+# Every tool must resolve to an absolute, executable path BEFORE `PATH=`
+# clears the search path below. command -v returns empty when a tool is
+# missing; a caller env may also override e.g. SORT=sort (a bare name that
+# stops resolving once PATH is empty). Either way an unusable $SORT/$FIND
+# collapses a `find | LC_ALL=C $SORT | tar --files-from=-` pipeline (and the
+# FAT find loops) into an EMPTY result with no non-zero exit set -e can see,
+# shipping a silently-truncated mes tarball / boot image. Fail loudly here.
+for _t in "WGET=$WGET" "MKDIR=$MKDIR" "RM=$RM" "CP=$CP" "FIND=$FIND" \
+          "SORT=$SORT" "GZIP=$GZIP" "TAR=$TAR" "MAKE=$MAKE" "UNZIP=$UNZIP" \
+          "GIT=$GIT" "TIMEOUT=$TIMEOUT" "TEE=$TEE" "GREP=$GREP"
+do
+	_tn="${_t%%=*}"; _tv="${_t#*=}"
+	case "$_tv" in
+		/*) test -x "$_tv" || { echo "fatal: tool '$_tn' resolved to '$_tv' which is not executable" >&2; exit 1 ;} ;;
+		*)  echo "fatal: tool '$_tn' did not resolve to an absolute path (got '${_tv:-<empty>}'); PATH=$PATH" >&2; exit 1 ;;
+	esac
+done
+
 set -eufx
 PATH=
 

@@ -57,15 +57,19 @@ overlay_tracked () {
 			| $TAR --create --null --no-recursion --files-from=- \
 				--file="${_tmp}")
 	else
-		# Plain directory (e.g. an extracted github tarball). Exclude only the
-		# .git directory; .gitignore / .gitattributes / .gitmodules are
+		# Plain directory (e.g. an extracted github tarball). Exclude only
+		# the .git directory; .gitignore / .gitattributes / .gitmodules are
 		# tracked files in many repos and `--exclude-vcs` would wrongly drop
-		# them, diverging from the git working-tree branch above. Pipe through
-		# LC_ALL=C sort so the archive order is filesystem-independent (the
-		# git branch is sorted by git ls-files; match that).
-		(cd "${_src}" && $FIND . -path ./.git -prune -o -print \
-			| LC_ALL=C $SORT \
-			| $TAR --create --no-recursion --files-from=- --file="${_tmp}")
+		# them, diverging from the git working-tree branch above. `tar
+		# --sort=name` gives a filesystem-independent order without a
+		# find|sort|tar pipeline: in a pipeline an unresolved $FIND/$SORT
+		# fails mid-pipe, set -e cannot see it, and `tar --files-from=-`
+		# silently produces an EMPTY archive (the cause of the in-image
+		# "mes tarball has 1 member" failure). A direct tar fails loudly
+		# under set -e instead.
+		(cd "${_src}" && $TAR --create --sort=name \
+			--exclude='.git' --exclude='./.git/*' \
+			--file="${_tmp}" .)
 	fi
 	(cd "${_dst}" && $TAR --extract --file="${_tmp}")
 	$RM -f "${_tmp}"
