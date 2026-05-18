@@ -35,9 +35,16 @@ jobs:
           cache-name: cache-host-files
         with:
           path: out/host-x86
-          key: build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers') }}-v6
+          # Hash the build logic that determines out/host-x86 content, not
+          # just host-x86.answers. distfiles.sh / run.sh changes (e.g. the
+          # mes repackaging path) must invalidate this cache, otherwise a
+          # host tree built by a broken intermediate distfiles.sh stays
+          # poisoned across runs even after the bug is fixed. restore-keys
+          # is the exact full key (no loose prefix) so a hash mismatch
+          # rebuilds rather than restoring a stale tree.
+          key: build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh') }}-v7
           restore-keys: |
-            build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers') }}-v6
+            build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh') }}-v7
       - run: sh run.sh make_host
       - uses: actions/upload-artifact@v4
         with:
