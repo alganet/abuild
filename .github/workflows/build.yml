@@ -35,17 +35,38 @@ jobs:
           cache-name: cache-host-files
         with:
           path: out/host-x86
-          # Hash the build logic that determines out/host-x86 content, not
-          # just host-x86.answers. distfiles.sh / run.sh changes (e.g. the
-          # mes repackaging path) must invalidate this cache, otherwise a
-          # host tree built by a broken intermediate distfiles.sh stays
-          # poisoned across runs even after the bug is fixed. restore-keys
-          # is the exact full key (no loose prefix) so a hash mismatch
-          # rebuilds rather than restoring a stale tree.
-          key: build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh') }}-v7
+          # Hash every build input that determines out/host-x86 content, not
+          # just host-x86.answers. run_make_host SKIPS rebuilding stage0
+          # binaries and the host tools (bin/bh0x, bin/dd, bin/fatput, ...)
+          # when a restored cache already contains them, gated only by an
+          # answers check / bin/fatget existing. host-x86.answers does NOT
+          # cover tools/*.c or run.sh / distfiles.sh, so a cache hit served
+          # stale host-tool binaries (built from pre-change tools/*.c) and a
+          # host tree built by a broken intermediate distfiles.sh stayed
+          # poisoned across runs even after the bug was fixed. Hashing
+          # tools/scripts/run.sh/distfiles.sh makes the cache correct by
+          # construction. restore-keys is the exact full key (no loose
+          # prefix) so a hash mismatch rebuilds rather than restoring a
+          # stale tree.
+          key: build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh', 'tools/**', 'scripts/**') }}-v8
           restore-keys: |
-            build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh') }}-v7
+            build-${{ env.cache-name }}-${{ hashFiles('host-x86.answers', 'run.sh', 'distfiles.sh', 'tools/**', 'scripts/**') }}-v8
       - run: sh run.sh make_host
+      # Fail-fast at the point of corruption: a complete mes tarball must
+      # carry the readdir.dir/file fixture and a sane member count. Without
+      # this gate a poisoned/empty tarball silently propagates to every
+      # matrix job, surfacing only as a confusing in-image
+      # `cp .../readdir.dir/file` error far downstream.
+      - name: Verify host mes tarball is complete
+        run: |
+          f=out/host-x86/distfiles/mes-0.27.1.tar.gz
+          test -f "$f" || { echo "FATAL: $f missing after make_host"; exit 1; }
+          n=$(zcat "$f" | tar -tf - | grep -c .)
+          echo "mes tarball members: $n"
+          test "$n" -gt 1000 || { echo "FATAL: mes tarball has only $n members (truncated/empty)"; exit 1; }
+          zcat "$f" | tar -tf - | grep -qF 'lib/tests/dirent/readdir.dir/file' \
+            || { echo "FATAL: readdir.dir/file absent from mes tarball"; exit 1; }
+          echo "mes tarball OK"
       - uses: actions/upload-artifact@v4
         with:
           name: host_files
