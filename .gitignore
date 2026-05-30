@@ -5,8 +5,3 @@
 /distfiles
 .github/**.md
 /qemu-local
-/qemu
-/qemu-persist
-qemu_*.log
-qemu_*.fd
-qemu_*.efi

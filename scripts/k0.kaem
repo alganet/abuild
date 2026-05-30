@@ -384,9 +384,14 @@ ARG=/tools/bh0x.c; putfile
 ARG=/tools/mkfat.c; putfile
 ARG=/tools/fatput.c; putfile
 ARG=/tools/fatget.c; putfile
-ARG=/tools/shutdown.c; putfile
-ARG=/tools/nowatchdog.c; putfile
 ARG=/tools/bh0header.c; putfile
+
+# UEFI-only: both tools call __uefi_* APIs and can't compile under Linux.
+if match${EXE_SUFFIX} ${BOARD} uefi
+then
+    ARG=/tools/shutdown.c; putfile
+    ARG=/tools/nowatchdog.c; putfile
+fi
 
 ARG=/distfiles; putdir
 ARG=/distfiles/mes-0.27.1.tar.gz; putfile
