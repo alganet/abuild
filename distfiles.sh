@@ -120,9 +120,19 @@ fetch_github_archive () {
 
 # --- base distfiles (always upstream) ---
 
-if ! test -f distfiles/builder-hex0-arch-main.tar.gz
-then $WGET -O distfiles/builder-hex0-arch-main.tar.gz \
-	"https://github.com/alganet/builder-hex0-arch/archive/refs/heads/${BUILDER_HEX0_ARCH_BRANCH}.tar.gz"
+# Always re-fetch branch-tracked tarballs: GitHub serves the branch HEAD, which
+# changes between sessions. Caching by mere file presence shipped stale state
+# into in-image builds and silently diverged hashes from CI sibling-free runs.
+# stage0-posix is pinned to a release tag, so its bytes are stable and we
+# keep the cache.
+if test -d "${SH_ROOT}/../builder-hex0-arch"
+then
+	$RM -f distfiles/builder-hex0-arch-main.tar.gz
+	repackage_to_tarball "${SH_ROOT}/../builder-hex0-arch" distfiles/builder-hex0-arch-main.tar.gz builder-hex0-arch-main
+else
+	$RM -f distfiles/builder-hex0-arch-main.tar.gz
+	$WGET -O distfiles/builder-hex0-arch-main.tar.gz \
+		"https://github.com/alganet/builder-hex0-arch/archive/refs/heads/${BUILDER_HEX0_ARCH_BRANCH}.tar.gz"
 fi
 
 if ! test -f distfiles/stage0-posix-1.9.1.tar.gz
@@ -133,16 +143,17 @@ fi
 
 # stage0-uefi: alganet fork by default; sibling overrides; empty branch falls
 # back to stikonas Release_1.9.1.
+# Always invalidate the branch-tracked clone (HEAD shifts between sessions);
+# keep the release-tag clone (immutable bytes).
 if test -d "${SH_ROOT}/../stage0-uefi"
 then
 	$RM -rf distfiles/stage0-uefi-1.9.1
 	overlay_tracked "${SH_ROOT}/../stage0-uefi" distfiles/stage0-uefi-1.9.1
 elif test -n "${STAGE0_UEFI_BRANCH}"
 then
-	if ! test -d distfiles/stage0-uefi-1.9.1
-	then PATH=/usr/bin:/bin $GIT clone --depth 1 --branch "${STAGE0_UEFI_BRANCH}" --recurse-submodules --shallow-submodules \
+	$RM -rf distfiles/stage0-uefi-1.9.1
+	PATH=/usr/bin:/bin $GIT clone --depth 1 --branch "${STAGE0_UEFI_BRANCH}" --recurse-submodules --shallow-submodules \
 		"${STAGE0_UEFI_REPO}" distfiles/stage0-uefi-1.9.1
-	fi
 elif ! test -d distfiles/stage0-uefi-1.9.1
 then PATH=/usr/bin:/bin $GIT clone --depth 1 --branch Release_1.9.1 --recurse-submodules --shallow-submodules \
 	https://git.stikonas.eu/andrius/stage0-uefi.git distfiles/stage0-uefi-1.9.1
@@ -156,12 +167,11 @@ then
 	repackage_to_tarball "${SH_ROOT}/../mes" distfiles/mes-0.27.1.tar.gz mes-0.27.1
 elif test -n "${MES_BRANCH}"
 then
-	if ! test -f distfiles/mes-0.27.1.tar.gz
-	then
-		fetch_github_archive alganet/mes "${MES_BRANCH}" distfiles/.mes-fetched
-		repackage_to_tarball distfiles/.mes-fetched distfiles/mes-0.27.1.tar.gz mes-0.27.1
-		$RM -rf distfiles/.mes-fetched
-	fi
+	$RM -rf distfiles/.mes-fetched
+	$RM -f distfiles/mes-0.27.1.tar.gz
+	fetch_github_archive alganet/mes "${MES_BRANCH}" distfiles/.mes-fetched
+	repackage_to_tarball distfiles/.mes-fetched distfiles/mes-0.27.1.tar.gz mes-0.27.1
+	$RM -rf distfiles/.mes-fetched
 elif ! test -f distfiles/mes-0.27.1.tar.gz
 then $WGET -O distfiles/mes-0.27.1.tar.gz https://ftp.gnu.org/gnu/mes/mes-0.27.1.tar.gz
 fi
@@ -169,25 +179,26 @@ fi
 # --- overlay forks (consumed by apply_overlay in run.sh) ---
 
 # M2libc: overlays onto every M2libc copy in the host tree.
+# Always invalidate the cache: GitHub branch HEAD shifts between sessions, and
+# a stale overlay would clobber the sibling stage0-uefi/M2libc submodule's
+# current pin with older bytes (this exact bug produced silently-wrong
+# in-image .efi seals overnight). When the stage0-uefi sibling is present its
+# submodule's working tree is authoritative; otherwise refetch from GitHub.
+$RM -rf distfiles/overlay-M2libc
 if test -d "${SH_ROOT}/../M2libc"
-then : # sibling overrides at apply time
+then : # top-level sibling overrides at apply time
+elif test -d "${SH_ROOT}/../stage0-uefi/M2libc"
+then overlay_tracked "${SH_ROOT}/../stage0-uefi/M2libc" distfiles/overlay-M2libc
 elif test -n "${M2LIBC_BRANCH}"
-then
-	if ! test -d distfiles/overlay-M2libc
-	then fetch_github_archive alganet/M2libc "${M2LIBC_BRANCH}" distfiles/overlay-M2libc
-	fi
-else
-	$RM -rf distfiles/overlay-M2libc
+then fetch_github_archive alganet/M2libc "${M2LIBC_BRANCH}" distfiles/overlay-M2libc
 fi
 
 # bootstrap-seeds: overlays onto top-level + stage0-uefi/bootstrap-seeds.
+$RM -rf distfiles/overlay-bootstrap-seeds
 if test -d "${SH_ROOT}/../bootstrap-seeds"
-then : # sibling overrides at apply time
+then : # top-level sibling overrides at apply time
+elif test -d "${SH_ROOT}/../stage0-uefi/bootstrap-seeds"
+then overlay_tracked "${SH_ROOT}/../stage0-uefi/bootstrap-seeds" distfiles/overlay-bootstrap-seeds
 elif test -n "${BOOTSTRAP_SEEDS_BRANCH}"
-then
-	if ! test -d distfiles/overlay-bootstrap-seeds
-	then fetch_github_archive alganet/bootstrap-seeds "${BOOTSTRAP_SEEDS_BRANCH}" distfiles/overlay-bootstrap-seeds
-	fi
-else
-	$RM -rf distfiles/overlay-bootstrap-seeds
+then fetch_github_archive alganet/bootstrap-seeds "${BOOTSTRAP_SEEDS_BRANCH}" distfiles/overlay-bootstrap-seeds
 fi
