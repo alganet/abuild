@@ -24,16 +24,15 @@ cd "$SH_ROOT"
 # source entirely; overlay forks (M2libc, bootstrap-seeds) are consumed by
 # apply_overlay in run.sh. Set <NAME>_BRANCH="" to disable a fork: replacement
 # falls back to the original upstream, overlay no-ops. A sibling checkout at
-# ../<name>/ overrides the fetched fork unconditionally.
-MES_REPO="${MES_REPO-https://github.com/alganet/mes.git}"
+# ../<name>/ overrides the fetched fork unconditionally. Repo URLs are
+# hardcoded in fetch_github_archive (alganet/*) and the wget calls below;
+# only stage0-uefi exposes a REPO override because its non-alganet fallback
+# (stikonas) lives on a different forge.
 MES_BRANCH="${MES_BRANCH-aarch64}"
 STAGE0_UEFI_REPO="${STAGE0_UEFI_REPO-https://github.com/alganet/stage0-uefi.git}"
 STAGE0_UEFI_BRANCH="${STAGE0_UEFI_BRANCH-riscv64}"
-M2LIBC_REPO="${M2LIBC_REPO-https://github.com/alganet/M2libc.git}"
 M2LIBC_BRANCH="${M2LIBC_BRANCH-riscv64-uefi}"
-BOOTSTRAP_SEEDS_REPO="${BOOTSTRAP_SEEDS_REPO-https://github.com/alganet/bootstrap-seeds.git}"
 BOOTSTRAP_SEEDS_BRANCH="${BOOTSTRAP_SEEDS_BRANCH-stage0-uefi}"
-BUILDER_HEX0_ARCH_REPO="${BUILDER_HEX0_ARCH_REPO-https://github.com/alganet/builder-hex0-arch.git}"
 BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-brk_cap}"
 
 $MKDIR -p distfiles

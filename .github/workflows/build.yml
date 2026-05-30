@@ -15,17 +15,8 @@ env:
   QEMU_VERSION: "10.1.4"
 
 jobs:
-  job_lint:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup
-      # - run: cpplint --recursive tools
-      - run: echo skipped
-
   job_build_host_files:
     runs-on: ubuntu-24.04
-    needs: job_lint
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
