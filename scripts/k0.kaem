@@ -230,9 +230,6 @@ then
         ARG=/${ARCH}/mescc-tools-seed-kaem.kaem; putfile
         ARG=/${ARCH}/mescc-tools-mini-kaem.kaem; putfile
         ARG=/${ARCH}/mescc-tools-full-kaem.kaem; putfile
-        ARG=/${ARCH}/test-cc.c; putfile
-        ARG=/${ARCH}/test-shift.hex2; putfile
-        ARG=/${ARCH}/test-large-offset.hex2; putfile
         ARG=/EFI; putdir
         ARG=/EFI/BOOT; putdir
         ARG=/EFI/BOOT/BOOTRISCV64.EFI; putfile
