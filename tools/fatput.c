@@ -39,6 +39,18 @@ int img_fd;
  * basename component, avoiding the need for char** parameters. */
 char* nav_basename;
 
+/* calloc that aborts on failure: in the bootstrap there is no recovery from
+ * OOM, and a silent NULL deref would corrupt the image instead of failing. */
+void* xcalloc(int n, int size) {
+  void* p;
+  p = calloc(n, size);
+  if (p == 0) {
+    fputs("fatput: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+  }
+  return p;
+}
+
 /* Read a little-endian 16-bit value from buffer */
 int read_le16(char* buf, int offset) {
   int lo;
@@ -89,7 +101,7 @@ int fat_entry_offset(int cluster) {
 int fat_read(int cluster) {
   char* buf;
   int val;
-  buf = calloc(4, sizeof(char));
+  buf = xcalloc(4, sizeof(char));
   lseek(img_fd, fat_entry_offset(cluster), 0);
   read(img_fd, buf, 4);
   val = read_le32(buf, 0) & 0x0FFFFFFF;
@@ -100,7 +112,7 @@ int fat_read(int cluster) {
 /* Write a FAT entry to both FAT copies */
 void fat_write(int cluster, int value) {
   char* buf;
-  buf = calloc(4, sizeof(char));
+  buf = xcalloc(4, sizeof(char));
   buf_write_le32(buf, 0, value);
   /* Write to FAT 1 */
   lseek(img_fd, fat_entry_offset(cluster), 0);
@@ -131,13 +143,33 @@ int alloc_cluster() {
   exit(EXIT_FAILURE);
 }
 
+/* Byte offset of directory entry `idx` (0-based) within the directory whose
+ * first cluster is dir_first. A FAT directory is a single contiguous stream of
+ * 32-byte entries spread across its cluster chain, so entry idx lives in the
+ * (idx / entries_per_cluster)-th cluster of the chain. The chain must already
+ * reach idx (find_free_entries extends it before any write). */
+int dir_entry_offset(int dir_first, int idx) {
+  int entries_per_cluster;
+  int cluster;
+  int n;
+
+  entries_per_cluster = bpb_cluster_size / DIR_ENTRY_SIZE;
+  cluster = dir_first;
+  n = idx / entries_per_cluster;
+  while (n > 0) {
+    cluster = fat_read(cluster);
+    n = n - 1;
+  }
+  return cluster_offset(cluster) + ((idx % entries_per_cluster) * DIR_ENTRY_SIZE);
+}
+
 /* Parse FAT32 BPB from the image */
 void parse_bpb() {
   char* buf;
   char* mbr;
 
-  buf = calloc(512, sizeof(char));
-  mbr = calloc(512, sizeof(char));
+  buf = xcalloc(512, sizeof(char));
+  mbr = xcalloc(512, sizeof(char));
 
   /* Read MBR to find partition start */
   lseek(img_fd, 0, 0);
@@ -209,7 +241,7 @@ int short_name_exists(int dir_cluster, char* short_name) {
   char* buf;
 
   entries_per_cluster = bpb_cluster_size / DIR_ENTRY_SIZE;
-  buf = calloc(DIR_ENTRY_SIZE + 1, sizeof(char));
+  buf = xcalloc(DIR_ENTRY_SIZE + 1, sizeof(char));
 
   cluster = dir_cluster;
   while (1) {
@@ -326,6 +358,12 @@ void make_short_name(char* name, char* out, int dir_cluster) {
       }
       tilde_num = tilde_num + 1;
     }
+
+    /* Exhausted ~1..~99 without a unique 8.3 name. Every such file also has
+     * an LFN, so lookups still work, but a silent collision could shadow a
+     * distinct file's short name -- fail instead of returning a dup. */
+    fputs("fatput: cannot generate a unique 8.3 short name\n", stderr);
+    exit(EXIT_FAILURE);
   }
 }
 
@@ -340,9 +378,10 @@ int lfn_checksum(char* short_name) {
   return sum;
 }
 
-/* Write a VFAT long filename entry at the given directory offset.
+/* Write a VFAT long filename entry at flat directory index entry_index of the
+ * directory whose first cluster is dir_first.
  * seq is the sequence number (1-based, last entry has 0x40 OR'd). */
-void write_lfn_entry(int dir_offset, int entry_index, int seq, char* name,
+void write_lfn_entry(int dir_first, int entry_index, int seq, char* name,
                      int name_offset, int checksum) {
   char* entry;
   int i;
@@ -350,7 +389,7 @@ void write_lfn_entry(int dir_offset, int entry_index, int seq, char* name,
   int pos;
   int name_len;
 
-  entry = calloc(32, sizeof(char));
+  entry = xcalloc(32, sizeof(char));
   name_len = strlen(name);
 
   entry[0] = seq & 0xFF;
@@ -407,7 +446,7 @@ void write_lfn_entry(int dir_offset, int entry_index, int seq, char* name,
     entry[28 + (i * 2) + 1] = (ch >> 8) & 0xFF;
   }
 
-  lseek(img_fd, dir_offset + (entry_index * DIR_ENTRY_SIZE), 0);
+  lseek(img_fd, dir_entry_offset(dir_first, entry_index), 0);
   write(img_fd, entry, DIR_ENTRY_SIZE);
   free(entry);
 }
@@ -418,7 +457,7 @@ void zero_cluster(int cluster) {
   int offset;
   int j;
 
-  zeros = calloc(SECTOR_SIZE, sizeof(char));
+  zeros = xcalloc(SECTOR_SIZE, sizeof(char));
   offset = cluster_offset(cluster);
   for (j = 0; j < bpb_sectors_per_cluster; j = j + 1) {
     lseek(img_fd, offset + (j * SECTOR_SIZE), 0);
@@ -427,31 +466,55 @@ void zero_cluster(int cluster) {
   free(zeros);
 }
 
-/* Find a free directory entry slot (or slots for LFN).
- * Returns the entry index within the cluster.
- * If the directory cluster is full, allocates a new one. */
-int find_free_entries(int dir_cluster, int count) {
+/* Find `count` contiguous free directory entry slots (one short-name entry
+ * plus its LFN entries) and return their flat starting index in the directory
+ * whose first cluster is dir_first. The directory is treated as one contiguous
+ * stream of entries across its cluster chain, so a run may straddle a cluster
+ * boundary -- this is required: a 0x00 entry marks end-of-directory, so we must
+ * never leave a 0x00 gap before a real entry (which would make later clusters
+ * unreachable to a conformant reader). New clusters are allocated and chained
+ * at the tail as the scan reaches the end of the existing chain. */
+int find_free_entries(int dir_first, int count) {
   char* buf;
-  int offset;
-  int i;
+  int idx;
+  int slot;
   int run;
   int run_start;
   int entries_per_cluster;
+  int cluster;
+  int next;
   int new_cluster;
 
-  buf = calloc(32, sizeof(char));
+  buf = xcalloc(DIR_ENTRY_SIZE, sizeof(char));
   entries_per_cluster = bpb_cluster_size / DIR_ENTRY_SIZE;
-  offset = cluster_offset(dir_cluster);
 
+  idx = 0;
+  slot = 0;
   run = 0;
   run_start = 0;
+  cluster = dir_first;
 
-  for (i = 0; i < entries_per_cluster; i = i + 1) {
-    lseek(img_fd, offset + (i * DIR_ENTRY_SIZE), 0);
+  while (1) {
+    if (slot == entries_per_cluster) {
+      /* Advance to the next cluster in the chain, allocating one if we ran
+       * off the end. zero_cluster leaves 0x00 entries, but the run we are
+       * building will fill them contiguously, so no end-marker hole forms. */
+      next = fat_read(cluster);
+      if (next >= 0x0FFFFFF8) {
+        new_cluster = alloc_cluster();
+        fat_write(cluster, new_cluster);
+        zero_cluster(new_cluster);
+        next = new_cluster;
+      }
+      cluster = next;
+      slot = 0;
+    }
+
+    lseek(img_fd, cluster_offset(cluster) + (slot * DIR_ENTRY_SIZE), 0);
     read(img_fd, buf, 1);
     if ((buf[0] == 0) || ((buf[0] & 0xFF) == 0xE5)) {
       if (run == 0) {
-        run_start = i;
+        run_start = idx;
       }
       run = run + 1;
       if (run >= count) {
@@ -461,20 +524,10 @@ int find_free_entries(int dir_cluster, int count) {
     } else {
       run = 0;
     }
+
+    idx = idx + 1;
+    slot = slot + 1;
   }
-
-  free(buf);
-
-  /* Directory full - allocate new cluster */
-  new_cluster = alloc_cluster();
-
-  /* Chain the new cluster */
-  fat_write(dir_cluster, new_cluster);
-
-  /* Zero out the new cluster */
-  zero_cluster(new_cluster);
-
-  return find_free_entries(new_cluster, count);
 }
 
 /* Find or create a subdirectory within a directory cluster.
@@ -500,9 +553,9 @@ int find_or_create_dir(int parent_cluster, char* name) {
   int end_of_dir;
   int seq;
 
-  buf = calloc(32, sizeof(char));
-  short_name = calloc(12, sizeof(char));
-  lfn_name = calloc(256, sizeof(char));
+  buf = xcalloc(32, sizeof(char));
+  short_name = xcalloc(12, sizeof(char));
+  lfn_name = xcalloc(256, sizeof(char));
 
   entries_per_cluster = bpb_cluster_size / DIR_ENTRY_SIZE;
 
@@ -596,7 +649,7 @@ int find_or_create_dir(int parent_cluster, char* name) {
 
   entry_index = find_free_entries(parent_cluster, num_lfn + 1);
 
-  /* Write LFN entries */
+  /* Write LFN entries (flat indices into the parent directory stream) */
   if (num_lfn > 0) {
     checksum = lfn_checksum(short_name);
     for (i = num_lfn; i >= 1; i = i - 1) {
@@ -604,7 +657,7 @@ int find_or_create_dir(int parent_cluster, char* name) {
       if (i == num_lfn) {
         seq = seq | 0x40; /* Last LFN entry marker */
       }
-      write_lfn_entry(cluster_offset(parent_cluster), entry_index + (num_lfn - i),
+      write_lfn_entry(parent_cluster, entry_index + (num_lfn - i),
                        seq, name, (i - 1) * 13, checksum);
     }
   }
@@ -624,7 +677,7 @@ int find_or_create_dir(int parent_cluster, char* name) {
   buf_write_le16(buf, 26, new_cluster & 0xFFFF);
   buf_write_le32(buf, 28, 0); /* Size: 0 for directories */
 
-  lseek(img_fd, cluster_offset(parent_cluster) + ((entry_index + num_lfn) * DIR_ENTRY_SIZE), 0);
+  lseek(img_fd, dir_entry_offset(parent_cluster, entry_index + num_lfn), 0);
   write(img_fd, buf, DIR_ENTRY_SIZE);
 
   /* Initialize the new directory cluster */
@@ -682,7 +735,7 @@ int navigate_path(char* path) {
   int k;
   int len;
 
-  component = calloc(256, sizeof(char));
+  component = xcalloc(256, sizeof(char));
   cluster = bpb_root_cluster;
   len = strlen(path);
 
@@ -766,7 +819,7 @@ void write_file(char* dest_path, char* source_path) {
   dir_cluster = navigate_path(dest_path);
   basename = nav_basename;
 
-  short_name = calloc(12, sizeof(char));
+  short_name = xcalloc(12, sizeof(char));
   make_short_name(basename, short_name, dir_cluster);
 
   name_len = strlen(basename);
@@ -778,7 +831,7 @@ void write_file(char* dest_path, char* source_path) {
 
   entry_index = find_free_entries(dir_cluster, num_lfn + 1);
 
-  /* Write LFN entries */
+  /* Write LFN entries (flat indices into the directory stream) */
   if (num_lfn > 0) {
     checksum = lfn_checksum(short_name);
     for (i = num_lfn; i >= 1; i = i - 1) {
@@ -786,7 +839,7 @@ void write_file(char* dest_path, char* source_path) {
       if (i == num_lfn) {
         seq = seq | 0x40;
       }
-      write_lfn_entry(cluster_offset(dir_cluster), entry_index + (num_lfn - i),
+      write_lfn_entry(dir_cluster, entry_index + (num_lfn - i),
                        seq, basename, (i - 1) * 13, checksum);
     }
   }
@@ -795,7 +848,7 @@ void write_file(char* dest_path, char* source_path) {
   first_cluster = 0;
   prev_cluster = 0;
   bytes_written = 0;
-  read_buf = calloc(bpb_cluster_size + 1, sizeof(char));
+  read_buf = xcalloc(bpb_cluster_size + 1, sizeof(char));
 
   while (bytes_written < file_size) {
     curr_cluster = alloc_cluster();
@@ -817,6 +870,15 @@ void write_file(char* dest_path, char* source_path) {
     }
 
     bytes_read = read(src_fd, read_buf, to_read);
+    if (bytes_read <= 0) {
+      /* lseek already told us file_size, so a short/failed read here is a
+       * real I/O error -- fail loudly rather than spin or seal a truncated
+       * image (advancing by a negative count would loop forever). */
+      fputs("fatput: short read from source file: ", stderr);
+      fputs(source_path, stderr);
+      fputs("\n", stderr);
+      exit(EXIT_FAILURE);
+    }
     lseek(img_fd, cluster_offset(curr_cluster), 0);
     write(img_fd, read_buf, bpb_cluster_size);
 
@@ -833,7 +895,7 @@ void write_file(char* dest_path, char* source_path) {
   }
 
   /* Write short name directory entry */
-  entry = calloc(32, sizeof(char));
+  entry = xcalloc(32, sizeof(char));
   for (i = 0; i < 11; i = i + 1) {
     entry[i] = short_name[i];
   }
@@ -842,7 +904,7 @@ void write_file(char* dest_path, char* source_path) {
   buf_write_le16(entry, 26, first_cluster & 0xFFFF);
   buf_write_le32(entry, 28, file_size);
 
-  lseek(img_fd, cluster_offset(dir_cluster) + ((entry_index + num_lfn) * DIR_ENTRY_SIZE), 0);
+  lseek(img_fd, dir_entry_offset(dir_cluster, entry_index + num_lfn), 0);
   write(img_fd, entry, DIR_ENTRY_SIZE);
 
   free(entry);

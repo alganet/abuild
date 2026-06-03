@@ -3,3 +3,7 @@
 
 # .gitattributes for GitHub syntax highlighting
 *.kaem linguist-language=Shell
+
+# kaem scripts are concatenated (catm) and parsed by kaem byte-for-byte; keep
+# them LF-only so a CRLF checkout can't leak a stray \r into a command token.
+*.kaem text eol=lf
