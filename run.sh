@@ -338,24 +338,44 @@ run_make_k0_img () {
 		then
 			_fat="$SH_ROOT/out/k0-${ARCH}-${BOARD}-fat.img"
 			_tree="$SH_ROOT/out/k0-${ARCH}-${BOARD}"
-			./bin/bh0x "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img" "$_tree"
-			./bin/mkfat "$_fat" 350
+			./bin/bh0x "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img" "$_tree" \
+				|| { echo "bh0x failed for $_tree" >&2; exit 1; }
+			./bin/mkfat "$_fat" 350 \
+				|| { echo "mkfat failed for $_fat" >&2; exit 1; }
 			# Sort under LC_ALL=C so FAT directory entry order is
 			# host-independent. Without the sort, readdir() order
 			# (filesystem-hashed on ext4) leaks into the image bytes.
-			$FIND "$_tree" -type d | LC_ALL=C $SORT | while IFS= read -r _dir; do
+			#
+			# Spool the listings to temp files and iterate with `< file`
+			# rather than `find | sort | while`: a while loop on the right
+			# of a pipe runs in a subshell, so a failing fatput there cannot
+			# be detected (there is no `set -e` here) and a half-populated
+			# image would be sealed silently. Each fatput rc is checked so a
+			# failure aborts the build instead.
+			_dirlist="$SH_ROOT/out/.fat-dirs"
+			_filelist="$SH_ROOT/out/.fat-files"
+			$FIND "$_tree" -type d | LC_ALL=C $SORT > "$_dirlist"
+			$FIND "$_tree" -type f | LC_ALL=C $SORT > "$_filelist"
+			while IFS= read -r _dir; do
 				_rel="${_dir#${_tree}}"
-				test -n "$_rel" && ./bin/fatput "$_fat" "$_rel"
-			done
-			$FIND "$_tree" -type f | LC_ALL=C $SORT | while IFS= read -r _file; do
+				if test -n "$_rel"; then
+					./bin/fatput "$_fat" "$_rel" \
+						|| { echo "fatput failed: dir $_rel" >&2; exit 1; }
+				fi
+			done < "$_dirlist"
+			while IFS= read -r _file; do
 				_rel="${_file#${_tree}}"
-				./bin/fatput "$_fat" "$_rel" "$_file"
-			done
-			./bin/fatput "$_fat" /k0.img "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img"
+				./bin/fatput "$_fat" "$_rel" "$_file" \
+					|| { echo "fatput failed: file $_rel" >&2; exit 1; }
+			done < "$_filelist"
+			$RM -f "$_dirlist" "$_filelist"
+			./bin/fatput "$_fat" /k0.img "$SH_ROOT/out/k0-${ARCH}-${BOARD}.img" \
+				|| { echo "fatput failed: /k0.img" >&2; exit 1; }
 			# startup.nsh (riscv64 EDK2 doesn't auto-load default boot path)
 			_startup="$SH_ROOT/out/startup.nsh"
 			printf 'FS0:\ncd \\\nEFI\\BOOT\\%s\n' "${_uefi_boot_name}" > "${_startup}"
-			./bin/fatput "$_fat" /startup.nsh "${_startup}"
+			./bin/fatput "$_fat" /startup.nsh "${_startup}" \
+				|| { echo "fatput failed: /startup.nsh" >&2; exit 1; }
 		fi
 	fi
 

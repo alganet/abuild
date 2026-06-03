@@ -35,6 +35,19 @@ M2LIBC_BRANCH="${M2LIBC_BRANCH-riscv64-uefi}"
 BOOTSTRAP_SEEDS_BRANCH="${BOOTSTRAP_SEEDS_BRANCH-stage0-uefi}"
 BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-brk_cap}"
 
+# Immutable commit pins. When a <NAME>_COMMIT is non-empty it overrides the
+# matching <NAME>_BRANCH and the fork is fetched at exactly that commit, making
+# a sibling-free build reproducible regardless of where the branch HEAD has
+# since moved. Leave empty to track the branch HEAD (the dev workflow). These
+# MUST be set to the merged fork commits before relying on a frozen build:
+# fill each with the pushed commit SHA, then reseal. A sibling checkout at
+# ../<name>/ still overrides both unconditionally.
+MES_COMMIT="${MES_COMMIT-}"
+STAGE0_UEFI_COMMIT="${STAGE0_UEFI_COMMIT-}"
+M2LIBC_COMMIT="${M2LIBC_COMMIT-}"
+BOOTSTRAP_SEEDS_COMMIT="${BOOTSTRAP_SEEDS_COMMIT-}"
+BUILDER_HEX0_ARCH_COMMIT="${BUILDER_HEX0_ARCH_COMMIT-}"
+
 $MKDIR -p distfiles
 
 # Copy <src>/. to <dst>/, contributing the same bytes a github source tarball
@@ -94,18 +107,23 @@ repackage_to_tarball () {
 	$RM -rf "${_stage}"
 }
 
-# Fetch a GitHub branch tarball into <dest>, stripping the <repo>-<branch>
-# top-level component. Stages into a temp dir and only swaps to <dest> on
-# success — a failed fetch never leaves an empty <dest> that the caller's
-# `test -d` cache check would mistake for a successful prior fetch.
-# Decompresses with $GZIP first because tar's child-gzip lookup can't see
-# PATH= when set to empty.
+# Fetch a GitHub tarball into <dest>, stripping the top-level component. With a
+# non-empty <commit> the immutable archive/<sha>.tar.gz is fetched (reproducible
+# regardless of branch movement); otherwise archive/refs/heads/<branch>.tar.gz.
+# Stages into a temp dir and only swaps to <dest> on success — a failed fetch
+# never leaves an empty <dest> that the caller's `test -d` cache check would
+# mistake for a successful prior fetch. Decompresses with $GZIP first because
+# tar's child-gzip lookup can't see PATH= when set to empty.
 fetch_github_archive () {
-	_user_repo="$1"; _branch="$2"; _dest="$3"
+	_user_repo="$1"; _branch="$2"; _dest="$3"; _commit="$4"
 	_tar_gz="${SH_ROOT}/distfiles/.fetch.tar.gz"
 	_tar="${SH_ROOT}/distfiles/.fetch.tar"
 	_stage="${SH_ROOT}/distfiles/.fetch-stage"
-	$WGET -O "${_tar_gz}" "https://github.com/${_user_repo}/archive/refs/heads/${_branch}.tar.gz"
+	if test -n "${_commit}"
+	then _url="https://github.com/${_user_repo}/archive/${_commit}.tar.gz"
+	else _url="https://github.com/${_user_repo}/archive/refs/heads/${_branch}.tar.gz"
+	fi
+	$WGET -O "${_tar_gz}" "${_url}"
 	$GZIP --force --decompress "${_tar_gz}"
 	$RM -rf "${_stage}"
 	$MKDIR -p "${_stage}"
@@ -130,8 +148,11 @@ then
 	repackage_to_tarball "${SH_ROOT}/../builder-hex0-arch" distfiles/builder-hex0-arch-main.tar.gz builder-hex0-arch-main
 else
 	$RM -f distfiles/builder-hex0-arch-main.tar.gz
-	$WGET -O distfiles/builder-hex0-arch-main.tar.gz \
-		"https://github.com/alganet/builder-hex0-arch/archive/refs/heads/${BUILDER_HEX0_ARCH_BRANCH}.tar.gz"
+	if test -n "${BUILDER_HEX0_ARCH_COMMIT}"
+	then _bh0_url="https://github.com/alganet/builder-hex0-arch/archive/${BUILDER_HEX0_ARCH_COMMIT}.tar.gz"
+	else _bh0_url="https://github.com/alganet/builder-hex0-arch/archive/refs/heads/${BUILDER_HEX0_ARCH_BRANCH}.tar.gz"
+	fi
+	$WGET -O distfiles/builder-hex0-arch-main.tar.gz "${_bh0_url}"
 fi
 
 if ! test -f distfiles/stage0-posix-1.9.1.tar.gz
@@ -148,6 +169,15 @@ if test -d "${SH_ROOT}/../stage0-uefi"
 then
 	$RM -rf distfiles/stage0-uefi-1.9.1
 	overlay_tracked "${SH_ROOT}/../stage0-uefi" distfiles/stage0-uefi-1.9.1
+elif test -n "${STAGE0_UEFI_COMMIT}"
+then
+	# Pin to an exact commit (with its recorded submodule gitlinks). A shallow
+	# --branch clone can't name an arbitrary SHA, so clone then checkout the
+	# commit and materialise submodules at the pins it records.
+	$RM -rf distfiles/stage0-uefi-1.9.1
+	PATH=/usr/bin:/bin $GIT clone --no-checkout "${STAGE0_UEFI_REPO}" distfiles/stage0-uefi-1.9.1
+	PATH=/usr/bin:/bin $GIT -C distfiles/stage0-uefi-1.9.1 checkout --detach "${STAGE0_UEFI_COMMIT}"
+	PATH=/usr/bin:/bin $GIT -C distfiles/stage0-uefi-1.9.1 submodule update --init --recursive
 elif test -n "${STAGE0_UEFI_BRANCH}"
 then
 	$RM -rf distfiles/stage0-uefi-1.9.1
@@ -168,7 +198,7 @@ elif test -n "${MES_BRANCH}"
 then
 	$RM -rf distfiles/.mes-fetched
 	$RM -f distfiles/mes-0.27.1.tar.gz
-	fetch_github_archive alganet/mes "${MES_BRANCH}" distfiles/.mes-fetched
+	fetch_github_archive alganet/mes "${MES_BRANCH}" distfiles/.mes-fetched "${MES_COMMIT}"
 	repackage_to_tarball distfiles/.mes-fetched distfiles/mes-0.27.1.tar.gz mes-0.27.1
 	$RM -rf distfiles/.mes-fetched
 elif ! test -f distfiles/mes-0.27.1.tar.gz
@@ -189,7 +219,7 @@ then : # top-level sibling overrides at apply time
 elif test -d "${SH_ROOT}/../stage0-uefi/M2libc"
 then overlay_tracked "${SH_ROOT}/../stage0-uefi/M2libc" distfiles/overlay-M2libc
 elif test -n "${M2LIBC_BRANCH}"
-then fetch_github_archive alganet/M2libc "${M2LIBC_BRANCH}" distfiles/overlay-M2libc
+then fetch_github_archive alganet/M2libc "${M2LIBC_BRANCH}" distfiles/overlay-M2libc "${M2LIBC_COMMIT}"
 fi
 
 # bootstrap-seeds: overlays onto top-level + stage0-uefi/bootstrap-seeds.
@@ -199,5 +229,5 @@ then : # top-level sibling overrides at apply time
 elif test -d "${SH_ROOT}/../stage0-uefi/bootstrap-seeds"
 then overlay_tracked "${SH_ROOT}/../stage0-uefi/bootstrap-seeds" distfiles/overlay-bootstrap-seeds
 elif test -n "${BOOTSTRAP_SEEDS_BRANCH}"
-then fetch_github_archive alganet/bootstrap-seeds "${BOOTSTRAP_SEEDS_BRANCH}" distfiles/overlay-bootstrap-seeds
+then fetch_github_archive alganet/bootstrap-seeds "${BOOTSTRAP_SEEDS_BRANCH}" distfiles/overlay-bootstrap-seeds "${BOOTSTRAP_SEEDS_COMMIT}"
 fi

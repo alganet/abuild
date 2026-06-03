@@ -31,6 +31,18 @@ int bpb_data_start;
 
 int img_fd;
 
+/* calloc that aborts on failure: in the bootstrap there is no recovery from
+ * OOM, and a silent NULL deref would read garbage instead of failing. */
+void* xcalloc(int n, int size) {
+  void* p;
+  p = calloc(n, size);
+  if (p == 0) {
+    fputs("fatget: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+  }
+  return p;
+}
+
 /* Read a little-endian 16-bit value from buffer */
 int read_le16(char* buf, int offset) {
   int lo;
@@ -67,7 +79,7 @@ int fat_entry_offset(int cluster) {
 int fat_read(int cluster) {
   char* buf;
   int val;
-  buf = calloc(4, sizeof(char));
+  buf = xcalloc(4, sizeof(char));
   lseek(img_fd, fat_entry_offset(cluster), 0);
   read(img_fd, buf, 4);
   val = read_le32(buf, 0) & 0x0FFFFFFF;
@@ -80,8 +92,8 @@ void parse_bpb() {
   char* buf;
   char* mbr;
 
-  buf = calloc(512, sizeof(char));
-  mbr = calloc(512, sizeof(char));
+  buf = xcalloc(512, sizeof(char));
+  mbr = xcalloc(512, sizeof(char));
 
   lseek(img_fd, 0, 0);
   read(img_fd, mbr, 512);
@@ -113,6 +125,19 @@ int to_upper(int c) {
   return c;
 }
 
+/* A data cluster number must be >= 2 and within the FAT region; reject anything
+ * else before turning it into a byte offset, so a corrupt directory entry or
+ * FAT chain fails loudly instead of seeking to a bogus (possibly negative)
+ * offset and emitting garbage. */
+int valid_data_cluster(int cluster) {
+  int max;
+  max = (bpb_sectors_per_fat * SECTOR_SIZE) / 4;
+  if (cluster < 2 || cluster >= max) {
+    return 0;
+  }
+  return 1;
+}
+
 /* Find a named entry in a directory cluster chain.
  * Returns the start cluster of the found entry, or -1 if not found.
  * Sets *file_size to the file size from the directory entry. */
@@ -134,9 +159,9 @@ int find_entry(int parent_cluster, char* name, int* file_size) {
   int name_len;
   int result;
 
-  buf = calloc(32, sizeof(char));
-  lfn_name = calloc(256, sizeof(char));
-  short_cmp = calloc(12, sizeof(char));
+  buf = xcalloc(32, sizeof(char));
+  lfn_name = xcalloc(256, sizeof(char));
+  short_cmp = xcalloc(12, sizeof(char));
 
   entries_per_cluster = bpb_cluster_size / DIR_ENTRY_SIZE;
 
@@ -145,6 +170,10 @@ int find_entry(int parent_cluster, char* name, int* file_size) {
   lfn_pos = 0;
   cluster = parent_cluster;
   while (found == 0 && end_of_dir == 0) {
+    if (valid_data_cluster(cluster) == 0) {
+      fputs("fatget: corrupt directory cluster chain\n", stderr);
+      exit(EXIT_FAILURE);
+    }
     offset = cluster_offset(cluster);
     for (i = 0; i < entries_per_cluster && found == 0 && end_of_dir == 0; i = i + 1) {
       lseek(img_fd, offset + (i * DIR_ENTRY_SIZE), 0);
@@ -179,7 +208,12 @@ int find_entry(int parent_cluster, char* name, int* file_size) {
         if (lfn_pos != 0 && 0 == strcmp(lfn_name, name)) {
           found = 1;
         } else if (lfn_pos == 0) {
-          /* Compare by short name: build 8.3 padded uppercase from name */
+          /* No preceding LFN: this entry was written by fatput only when the
+           * name is a genuine 8.3 name (is_short_name() true), in which case
+           * fatput's make_short_name() does the same plain uppercase 8.3
+           * conversion done here -- so the two derivations agree. The ~N
+           * collision form is never reached on this path because such names
+           * always carry an LFN (matched above). LFN is authoritative. */
           name_len = strlen(name);
           for (j = 0; j < 11; j = j + 1) {
             short_cmp[j] = ' ';
@@ -240,7 +274,7 @@ int navigate_and_find(char* path, int* file_size) {
   int len;
   int dummy_size;
 
-  component = calloc(256, sizeof(char));
+  component = xcalloc(256, sizeof(char));
   cluster = bpb_root_cluster;
   len = strlen(path);
   dummy_size = 0;
@@ -322,9 +356,13 @@ int main(int argc, char** argv) {
   }
 
   /* Read file data cluster by cluster */
-  buf = calloc(bpb_cluster_size, sizeof(char));
+  buf = xcalloc(bpb_cluster_size, sizeof(char));
   cluster = file_cluster;
   while (file_size > 0 && cluster < 0x0FFFFFF8) {
+    if (valid_data_cluster(cluster) == 0) {
+      fputs("fatget: corrupt file cluster chain\n", stderr);
+      exit(EXIT_FAILURE);
+    }
     lseek(img_fd, cluster_offset(cluster), 0);
     read(img_fd, buf, bpb_cluster_size);
 

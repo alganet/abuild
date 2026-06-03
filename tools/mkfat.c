@@ -278,6 +278,10 @@ int main(int argc, char** argv) {
     - ((PARTITION_START + data_start_sector) * SECTOR_SIZE)
     - CLUSTER_SIZE;
   zbuf = calloc(SECTOR_SIZE, 1);
+  if (zbuf == 0) {
+    fputs("mkfat: out of memory\n", stderr);
+    exit(EXIT_FAILURE);
+  }
   while (remain > 0) {
     to_write = SECTOR_SIZE;
     if (remain < SECTOR_SIZE) to_write = remain;
