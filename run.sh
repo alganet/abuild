@@ -545,6 +545,14 @@ run_all () {
 	run_make_k0
 }
 
-while test $# -gt 0
-do "run_${1}" && shift || exit
+# Run each requested target as a plain command so `set -e` stays in force
+# INSIDE the run_* function. Calling it on the left of `&&` (the old
+# `"run_${1}" && shift || exit`) put the function in a condition context,
+# which POSIX suppresses set -e for throughout the whole call tree -- a hard
+# failure mid-build (e.g. kaem "ABORTING HARD") was swallowed, the function
+# returned its last command's status (often 0), and the breakage surfaced far
+# downstream as a confusing "cp: out/k0-*.img: No such file". A bare call lets
+# set -e abort at the real point of failure.
+for _t in "$@"
+do "run_${_t}"
 done

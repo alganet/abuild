@@ -28,12 +28,12 @@ cd "$SH_ROOT"
 # hardcoded in fetch_github_archive (alganet/*) and the wget calls below;
 # only stage0-uefi exposes a REPO override because its non-alganet fallback
 # (stikonas) lives on a different forge.
-MES_BRANCH="${MES_BRANCH-aarch64}"
+MES_BRANCH="${MES_BRANCH-master}"
 STAGE0_UEFI_REPO="${STAGE0_UEFI_REPO-https://github.com/alganet/stage0-uefi.git}"
-STAGE0_UEFI_BRANCH="${STAGE0_UEFI_BRANCH-riscv64}"
-M2LIBC_BRANCH="${M2LIBC_BRANCH-riscv64-uefi}"
-BOOTSTRAP_SEEDS_BRANCH="${BOOTSTRAP_SEEDS_BRANCH-stage0-uefi}"
-BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-brk_cap}"
+STAGE0_UEFI_BRANCH="${STAGE0_UEFI_BRANCH-main}"
+M2LIBC_BRANCH="${M2LIBC_BRANCH-main}"
+BOOTSTRAP_SEEDS_BRANCH="${BOOTSTRAP_SEEDS_BRANCH-master}"
+BUILDER_HEX0_ARCH_BRANCH="${BUILDER_HEX0_ARCH_BRANCH-main}"
 
 # Immutable commit pins. When a <NAME>_COMMIT is non-empty it overrides the
 # matching <NAME>_BRANCH and the fork is fetched at exactly that commit, making
