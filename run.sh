@@ -48,6 +48,7 @@ GIT="${GIT:-$(command -v git)}"
 TIMEOUT="${TIMEOUT:-$(command -v timeout)}"
 TEE="${TEE:-$(command -v tee)}"
 GREP="${GREP:-$(command -v grep)}"
+SED="${SED:-$(command -v sed)}"
 
 # Every tool must resolve to an absolute, executable path BEFORE `PATH=`
 # clears the search path below. command -v returns empty when a tool is
@@ -102,6 +103,49 @@ run_make_host () {
 		$GZIP --decompress --keep distfiles/stage0-posix-1.9.1.tar.gz
 		$TAR --extract --strip-components=1 --directory out/host-${HOST_ARCH} --file=distfiles/stage0-posix-1.9.1.tar
 		$RM -f distfiles/stage0-posix-1.9.1.tar
+
+		# Adapt the stage0-posix mini-tier bootstrap to the modern M2libc
+		# layout. Upstream M2libc split bootstrap.c: per-arch
+		# */linux/bootstrap.c is now a thin syscall wrapper and the libc
+		# (malloc/fputs/fopen/strlen/...) moved to a new root bootstrap.c.
+		# mescc-tools-mini-kaem.kaem (the only mini-tier consumer: M2-Planet,
+		# blood-elf, M1) feeds only the per-arch file, so it loses those
+		# symbols against the new M2libc. Inject root bootstrap.c right after
+		# each per-arch one (syscalls first, libc on top), matching what
+		# split-era upstream stage0-posix does. The full tier (stdio/stdlib/
+		# string.c, used by M2-Mesoplanet) is unaffected.
+		# `set -f` (line 71) is active so we enumerate via find, not a glob.
+		$FIND out/host-${HOST_ARCH} -maxdepth 2 -name mescc-tools-mini-kaem.kaem \
+			-exec $SED -E -i 's#^([[:space:]]*(-f )?\./)M2libc/[a-z0-9_]+/linux/bootstrap\.c( \\)?$#&\n\1M2libc/bootstrap.c\3#' {} +
+
+		# stage0-posix's */kaem.run self-verifies the freshly-built host tools
+		# against the bundled ${ARCH}.answers seal. Our M2libc overlay changes
+		# those tools by design, so that verify can never pass; rewrite it to
+		# REGENERATE the seal over the same file set instead of aborting on a
+		# stale one. abuild's own k0-*.answers seal the real artifacts, and
+		# deterministic host tools keep the regenerated seal reproducible
+		# across clean rebuilds. PATH is already cleared, so use only
+		# $SED/$FIND + shell builtins (no awk/tr/dirname). fd 3 keeps the
+		# outer loop's stdin clear of the inner per-answers read.
+		$FIND out/host-${HOST_ARCH} -maxdepth 2 -name kaem.run > out/host-${HOST_ARCH}/.kaemruns
+		while IFS= read -r _kr <&3
+		do
+			_d=${_kr%/*}; _arch=${_d##*/}
+			# arch dir names are mixed-case but answers files are lowercase
+			case "${_arch}" in
+				AArch64) _arch=aarch64 ;;
+				AMD64)   _arch=amd64 ;;
+			esac
+			_ans=${_d%/*}/${_arch}.answers
+			test -f "${_ans}" || continue
+			_files=""
+			while IFS= read -r _line
+			do _files="${_files} ${_line##*  }"
+			done < "${_ans}"
+			$SED -E -i "s# -c \\\$\\{ARCH\\}\\.answers# -o \${ARCH}.answers${_files}#" "${_kr}"
+		done 3< out/host-${HOST_ARCH}/.kaemruns
+		$RM -f out/host-${HOST_ARCH}/.kaemruns
+
 		$MKDIR -p out/host-${HOST_ARCH}/stage0-posix-extracted
 	fi
 
@@ -129,6 +173,31 @@ run_make_host () {
 		"out/host-${HOST_ARCH}/stage0-uefi/bootstrap-seeds"
 	apply_overlay builder-hex0-arch \
 		"out/host-${HOST_ARCH}/builder-hex0-arch"
+
+	# stage0-posix vendors per-arch copies of M2libc's ${arch}_defs.M1 /
+	# libc-core.M1 / libc-full.M1 in its arch dirs (x86/, AArch64/, ...),
+	# used by mescc-tools-mini-kaem.kaem to assemble the seed-built
+	# M2-Planet. Those copies are stale against the overlaid M2libc: the
+	# split-layout */linux/bootstrap.c asm() uses macros only the new
+	# ${arch}_defs.M1 defines, and an undefined macro silently passes
+	# through M0 into hex2, which scavenges stray hex chars from it --
+	# misaligning every label after it (aarch64's defs were rewritten
+	# upstream; its in-image M2-Planet jumped to a misaligned main and
+	# stage2 reset). Sync the vendored copies from the overlaid M2libc;
+	# the new defs are a strict superset of the old on every arch.
+	for _pair in x86:x86 AMD64:amd64 AArch64:aarch64 riscv32:riscv32 riscv64:riscv64 armv7l:armv7l
+	do
+		_sdir="out/host-${HOST_ARCH}/${_pair%%:*}"
+		_m2a="out/host-${HOST_ARCH}/M2libc/${_pair##*:}"
+		test -d "${_sdir}" || continue
+		test -d "${_m2a}" || continue
+		for _f in "${_pair##*:}_defs.M1" libc-core.M1 libc-full.M1
+		do
+			if test -f "${_sdir}/${_f}" && test -f "${_m2a}/${_f}"
+			then $CP -f "${_m2a}/${_f}" "${_sdir}/${_f}"
+			fi
+		done
+	done
 
 	$CP -Rf distfiles "$SH_ROOT/out/host-${HOST_ARCH}"
 	$CP -Rf tools "$SH_ROOT/out/host-${HOST_ARCH}"
