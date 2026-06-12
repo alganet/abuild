@@ -286,6 +286,7 @@ ARG=/M2libc/armv7l/linux/fcntl.c; putfile
 ARG=/M2libc/armv7l/linux/sys; putdir
 ARG=/M2libc/armv7l/linux/sys/stat.c; putfile
 ARG=/M2libc/armv7l/linux/unistd.c; putfile
+ARG=/M2libc/bootstrap.c; putfile
 ARG=/M2libc/bootstrappable.c; putfile
 ARG=/M2libc/bootstrappable.h; putfile
 ARG=/M2libc/ctype.c; putfile
